@@ -46,6 +46,9 @@ class TrucoHand:
         if len(hands) != self.n or any(len(h) != 3 for h in hands):
             raise ValueError("each player needs exactly three cards")
         self.hands = [sort_by_strength(list(h)) for h in hands]
+        self.envido_of = [envido_points(h) for h in self.hands]
+        self.flor_of = [has_flor(h) for h in self.hands]
+        self._legal: list[int] | None = None
         self.scramble_teams = tuple(scramble_teams)
         self.played_slot = [[False, False, False] for _ in range(self.n)]
         self.table: list[list[int | None]] = [[None] * self.n for _ in range(3)]
@@ -128,7 +131,7 @@ class TrucoHand:
     def can_declare_flor(self, seat: int) -> bool:
         if self.flor_done or self.round != 0 or self.has_played_in_round(seat, 0):
             return False
-        return has_flor(self.hands[seat])
+        return self.flor_of[seat]
 
     def can_call_truco(self, seat: int) -> bool:
         if self.pending is not None or self.truco_level >= 3:
@@ -136,6 +139,11 @@ class TrucoHand:
         return self.truco_holder is None or self.truco_holder == self.team(seat)
 
     def legal_actions(self) -> list[int]:
+        if self._legal is None:
+            self._legal = self._compute_legal()
+        return self._legal
+
+    def _compute_legal(self) -> list[int]:
         if self.done:
             return []
         seat = self.current_player
@@ -169,6 +177,7 @@ class TrucoHand:
             raise IllegalAction("hand already finished")
         if action not in self.legal_actions():
             raise IllegalAction(f"illegal action {action}")
+        self._legal = None
         seat = self.current_player
         self.history.append((seat, action))
         if self.signal_phase:
@@ -286,7 +295,7 @@ class TrucoHand:
         else:
             value = sum(ENVIDO_CALL_VALUES[c] for c in self.envido_calls)
         winner_seat = self.best_envido_seat()
-        self.revealed_envido[winner_seat] = envido_points(self.hands[winner_seat])
+        self.revealed_envido[winner_seat] = self.envido_of[winner_seat]
         self._close_envido(self.team(winner_seat), value)
 
     def _no_quiero(self, pending: Pending) -> None:
@@ -308,9 +317,9 @@ class TrucoHand:
     def best_envido_seat(self) -> int:
         order = [(self.mano + i) % self.n for i in range(self.n)]
         best_seat = order[0]
-        best_value = envido_points(self.hands[best_seat])
+        best_value = self.envido_of[best_seat]
         for s in order[1:]:
-            value = envido_points(self.hands[s])
+            value = self.envido_of[s]
             if value > best_value:
                 best_seat, best_value = s, value
         return best_seat
@@ -375,6 +384,9 @@ class TrucoHand:
         other.__dict__.update(self.__dict__)
         other.rng = random.Random(self.rng.random())
         other.hands = [list(h) for h in self.hands]
+        other.envido_of = list(self.envido_of)
+        other.flor_of = list(self.flor_of)
+        other._legal = None
         other.played_slot = [list(p) for p in self.played_slot]
         other.table = [list(r) for r in self.table]
         other.round_order = list(self.round_order)
