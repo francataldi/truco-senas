@@ -1,122 +1,171 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from functools import lru_cache
+
 import numpy as np
 
 from . import actions as A
-from .cards import MAX_ENVIDO, MAX_STRENGTH, N_CARDS, STRENGTH, envido_points, has_flor
+from .cards import MAX_ENVIDO, MAX_STRENGTH, N_CARDS, STRENGTH
 from .engine import PARDA, TrucoHand
 from .rules import Rules
 
 
-def _one_hot(index: int | None, size: int) -> np.ndarray:
-    v = np.zeros(size, dtype=np.float32)
-    if index is not None and 0 <= index < size:
-        v[index] = 1.0
-    return v
+@dataclass(frozen=True)
+class Layout:
+    n: int
+    k: int
+    signals: bool
+    slots: int
+    strengths: int
+    own: int
+    table: int
+    rounds: int
+    round_idx: int
+    mano: int
+    leader: int
+    truco: int
+    holder: int
+    pending_kind: int
+    pending_level: int
+    responder: int
+    caller: int
+    envido: int
+    revealed: int
+    scores: int
+    signal_phase: int
+    signal_view: int
+    size: int
 
 
-def encode(hand: TrucoHand, seat: int) -> np.ndarray:
+@lru_cache(maxsize=None)
+def layout(n: int, k: int, signals: bool) -> Layout:
+    sizes = [
+        ("slots", 3 * N_CARDS),
+        ("strengths", 3),
+        ("own", 2),
+        ("table", 3 * n * N_CARDS),
+        ("rounds", 9),
+        ("round_idx", 3),
+        ("mano", n),
+        ("leader", n),
+        ("truco", 4),
+        ("holder", 3),
+        ("pending_kind", 3),
+        ("pending_level", 4),
+        ("responder", 1),
+        ("caller", n),
+        ("envido", 5),
+        ("revealed", 2 * n),
+        ("scores", 5),
+        ("signal_phase", 1 if signals else 0),
+        ("signal_view", n * (k + 1) if signals else 0),
+    ]
+    offsets = {}
+    pos = 0
+    for name, size in sizes:
+        offsets[name] = pos
+        pos += size
+    return Layout(n=n, k=k, signals=signals, size=pos, **offsets)
+
+
+def layout_for(rules: Rules) -> Layout:
+    return layout(rules.num_players, rules.signal_vocab, rules.signals)
+
+
+def encode(hand: TrucoHand, seat: int, out: np.ndarray | None = None) -> np.ndarray:
     rules = hand.rules
+    L = layout(hand.n, rules.signal_vocab, rules.signals)
     n = hand.n
-    me = hand.team(seat)
+    if out is None:
+        v = np.zeros(L.size, dtype=np.float32)
+    else:
+        v = out
+        v.fill(0.0)
+    me = seat % 2
     target = float(rules.target)
-    parts: list[np.ndarray] = []
 
-    slots = np.zeros((3, N_CARDS), dtype=np.float32)
-    strengths = np.zeros(3, dtype=np.float32)
-    for i, card in enumerate(hand.hands[seat]):
-        if not hand.played_slot[seat][i]:
-            slots[i, card] = 1.0
-            strengths[i] = STRENGTH[card] / MAX_STRENGTH
-    parts.append(slots.ravel())
-    parts.append(strengths)
-    parts.append(
-        np.array(
-            [envido_points(hand.hands[seat]) / MAX_ENVIDO, float(has_flor(hand.hands[seat]))],
-            dtype=np.float32,
-        )
-    )
+    cards = hand.hands[seat]
+    played = hand.played_slot[seat]
+    for i in range(3):
+        if not played[i]:
+            c = cards[i]
+            v[L.slots + i * N_CARDS + c] = 1.0
+            v[L.strengths + i] = STRENGTH[c] / MAX_STRENGTH
+    v[L.own] = hand.envido_of[seat] / MAX_ENVIDO
+    v[L.own + 1] = float(hand.flor_of[seat])
 
-    table = np.zeros((3, n, N_CARDS), dtype=np.float32)
-    for r in range(3):
+    for r in range(hand.round + 1 if hand.round < 3 else 3):
+        row = hand.table[r]
         for s in range(n):
-            card = hand.table[r][s]
-            if card is not None:
-                table[r, (s - seat) % n, card] = 1.0
-    parts.append(table.ravel())
+            c = row[s]
+            if c is not None:
+                v[L.table + (r * n + (s - seat) % n) * N_CARDS + c] = 1.0
 
-    rounds = np.zeros((3, 3), dtype=np.float32)
     for r, w in enumerate(hand.round_winners):
-        rounds[r, 2 if w == PARDA else (0 if w == me else 1)] = 1.0
-    parts.append(rounds.ravel())
+        v[L.rounds + 3 * r + (2 if w == PARDA else (0 if w == me else 1))] = 1.0
 
-    parts.append(_one_hot(min(hand.round, 2), 3))
-    parts.append(_one_hot((hand.mano - seat) % n, n))
-    parts.append(_one_hot((hand.round_leader - seat) % n, n))
-
-    parts.append(_one_hot(hand.truco_level, 4))
-    holder = 0 if hand.truco_holder is None else (1 if hand.truco_holder == me else 2)
-    parts.append(_one_hot(holder, 3))
+    v[L.round_idx + min(hand.round, 2)] = 1.0
+    v[L.mano + (hand.mano - seat) % n] = 1.0
+    v[L.leader + (hand.round_leader - seat) % n] = 1.0
+    v[L.truco + hand.truco_level] = 1.0
+    holder = hand.truco_holder
+    v[L.holder + (0 if holder is None else (1 if holder == me else 2))] = 1.0
 
     pending = hand.pending
-    kind = 0 if pending is None else (1 if pending.kind == "truco" else 2)
-    parts.append(_one_hot(kind, 3))
-    parts.append(_one_hot(pending.level if pending is not None and pending.kind == "truco" else None, 4))
-    parts.append(np.array([float(pending is not None and pending.responder == seat)], dtype=np.float32))
-    parts.append(_one_hot((pending.caller - seat) % n if pending is not None else None, n))
+    if pending is None:
+        v[L.pending_kind] = 1.0
+    else:
+        if pending.kind == "truco":
+            v[L.pending_kind + 1] = 1.0
+            if 0 <= pending.level < 4:
+                v[L.pending_level + pending.level] = 1.0
+        else:
+            v[L.pending_kind + 2] = 1.0
+        v[L.responder] = float(pending.responder == seat)
+        v[L.caller + (pending.caller - seat) % n] = 1.0
 
     calls = hand.envido_calls
-    parts.append(
-        np.array(
-            [
-                calls.count(A.ENVIDO) / 2.0,
-                float(A.REAL_ENVIDO in calls),
-                float(A.FALTA_ENVIDO in calls),
-                float(hand.envido_done),
-                float(hand.flor_done),
-            ],
-            dtype=np.float32,
-        )
-    )
+    if calls:
+        v[L.envido] = calls.count(A.ENVIDO) / 2.0
+        v[L.envido + 1] = float(A.REAL_ENVIDO in calls)
+        v[L.envido + 2] = float(A.FALTA_ENVIDO in calls)
+    v[L.envido + 3] = float(hand.envido_done)
+    v[L.envido + 4] = float(hand.flor_done)
 
-    revealed = np.zeros((n, 2), dtype=np.float32)
     for s in range(n):
         value = hand.revealed_envido[s]
         if value is not None:
-            revealed[(s - seat) % n] = (value / MAX_ENVIDO, 1.0)
-    parts.append(revealed.ravel())
+            base = L.revealed + 2 * ((s - seat) % n)
+            v[base] = value / MAX_ENVIDO
+            v[base + 1] = 1.0
 
-    parts.append(
-        np.array(
-            [
-                hand.scores[me] / target,
-                hand.scores[1 - me] / target,
-                hand.falta_value() / target,
-                hand.points[me] / target,
-                hand.points[1 - me] / target,
-            ],
-            dtype=np.float32,
-        )
-    )
+    v[L.scores] = hand.scores[me] / target
+    v[L.scores + 1] = hand.scores[1 - me] / target
+    v[L.scores + 2] = hand.falta_value() / target
+    v[L.scores + 3] = hand.points[me] / target
+    v[L.scores + 4] = hand.points[1 - me] / target
 
-    if rules.signals:
-        k = rules.signal_vocab
-        parts.append(np.array([float(hand.signal_phase)], dtype=np.float32))
-        sig = np.zeros((n, k + 1), dtype=np.float32)
+    if L.signals:
+        k = L.k
+        v[L.signal_phase] = float(hand.signal_phase)
+        view = hand.signal_view[seat]
         for s in range(n):
-            token = hand.signal_view[seat][s]
-            sig[(s - seat) % n, k if token is None else token] = 1.0
-        parts.append(sig.ravel())
+            token = view[s]
+            v[L.signal_view + ((s - seat) % n) * (k + 1) + (k if token is None else token)] = 1.0
 
-    return np.concatenate(parts)
+    return v
 
 
 def obs_size(rules: Rules) -> int:
-    return int(encode(TrucoHand(rules), 0).shape[0])
+    return layout_for(rules).size
 
 
-def action_mask(hand: TrucoHand, n_actions: int) -> np.ndarray:
-    mask = np.zeros(n_actions, dtype=bool)
-    for a in hand.legal_actions():
-        mask[a] = True
+def action_mask(hand: TrucoHand, n_actions: int, out: np.ndarray | None = None) -> np.ndarray:
+    if out is None:
+        mask = np.zeros(n_actions, dtype=bool)
+    else:
+        mask = out
+        mask.fill(False)
+    mask[hand.legal_actions()] = True
     return mask
