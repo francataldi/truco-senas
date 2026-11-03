@@ -1,0 +1,25 @@
+rules:
+  num_players: 4
+  target: 30
+  flor: false
+  signals: true
+  signal_vocab: 8
+  spy_prob: 0.2
+net:
+  hidden: 256
+  depth: 3
+iterations: 400
+workers: 2
+hands_per_worker: 256
+parallel_hands: 64
+minibatch: 2048
+epochs: 4
+lr: 0.0005
+lr_final: 0.0001
+eval_every: 25
+eval_matches: 80
+save_every: 25
+snapshot_every: 20
+out_dir: runs/cpu_prueba
+device: cpu
+amp: false
