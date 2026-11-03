@@ -160,11 +160,11 @@ def collect(args: tuple) -> dict:
     rules = Rules(**rules_dict)
     cfg = NetConfig(**net_dict)
     net = build_net(rules, cfg)
-    net.load_state_dict(state)
+    net.load_state_dict({k: torch.as_tensor(v) for k, v in state.items()})
     net.eval()
     opponent = None
     if opponent_state is not None:
         opponent = build_net(rules, cfg)
-        opponent.load_state_dict(opponent_state)
+        opponent.load_state_dict({k: torch.as_tensor(v) for k, v in opponent_state.items()})
         opponent.eval()
     return run_rollouts(net, opponent, rules, settings, seed)

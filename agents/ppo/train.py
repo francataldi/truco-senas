@@ -175,12 +175,16 @@ def ppo_update(net, opt, batch: dict, cfg: TrainConfig, device: torch.device) ->
 
 
 def _cpu_state(net) -> dict:
-    return {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
+    return {k: v.detach().cpu().numpy().copy() for k, v in net.state_dict().items()}
+
+
+def _to_tensors(state: dict) -> dict:
+    return {k: torch.as_tensor(v) for k, v in state.items()}
 
 
 def evaluate(net_state: dict, rules: Rules, net_cfg: NetConfig, matches: int, seed: int) -> dict:
     net = build_net(rules, net_cfg)
-    net.load_state_dict(net_state)
+    net.load_state_dict(_to_tensors(net_state))
     agent = PPOAgent(net, seed=seed)
     vs_heur = head_to_head(rules, [agent], [HeuristicAgent(seed=seed)], matches, seed=seed)
     vs_rand = head_to_head(rules, [agent], [RandomAgent(seed=seed)], max(10, matches // 4), seed=seed + 1)
