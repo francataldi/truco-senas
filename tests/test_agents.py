@@ -5,7 +5,7 @@ import torch
 
 from agents.arena import head_to_head
 from agents.base import RandomAgent
-from agents.cfr import CFRAgent, MCCFR, infoset_key, regret_matching
+from agents.cfr import MCCFR, CFRAgent, infoset_key, regret_matching
 from agents.heuristic import HeuristicAgent, classic_signal
 from agents.ppo.agent import PPOAgent
 from agents.ppo.net import NetConfig, build_net, load_checkpoint, save_checkpoint
@@ -80,7 +80,7 @@ def test_gae_terminal_reward():
 
 def test_rollouts_and_checkpoint(tmp_path):
     net = build_net(PAREJAS, NetConfig(hidden=32, depth=1))
-    settings = dict(hands=12, parallel=4, gamma=1.0, lam=0.95, reward_scale=4.0, opponent_prob=0.5, zero_score_prob=0.5)
+    settings = {"hands": 12, "parallel": 4, "gamma": 1.0, "lam": 0.95, "reward_scale": 4.0, "opponent_prob": 0.5, "zero_score_prob": 0.5}
     batch = run_rollouts(net, build_net(PAREJAS, NetConfig(hidden=32, depth=1)), PAREJAS, settings, seed=0)
     n = batch["action"].shape[0]
     assert n > 0

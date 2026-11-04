@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 import torch
 import torch.nn as nn
@@ -22,8 +22,11 @@ class NetConfig:
         return asdict(self)
 
 
+DEFAULT_NET = NetConfig()
+
+
 class TrucoNet(nn.Module):
-    def __init__(self, obs_dim: int, n_actions: int, cfg: NetConfig = NetConfig(), aux_dim: int = N_FEATURES) -> None:
+    def __init__(self, obs_dim: int, n_actions: int, cfg: NetConfig = DEFAULT_NET, aux_dim: int = N_FEATURES) -> None:
         super().__init__()
         layers: list[nn.Module] = []
         width = obs_dim

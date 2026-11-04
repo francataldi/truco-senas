@@ -61,7 +61,7 @@ class TrainConfig:
     resume: bool = True
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "TrainConfig":
+    def from_yaml(cls, path: str | Path) -> TrainConfig:
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         base = cls()
@@ -245,7 +245,7 @@ def train(cfg: TrainConfig) -> Path:
                 group["lr"] = _lr(cfg, it)
             state = _cpu_state(net)
             tasks = []
-            for w in range(cfg.workers):
+            for _ in range(cfg.workers):
                 opponent = rng.choice(snapshots) if snapshots else None
                 tasks.append((state, opponent, cfg.rules, cfg.net, settings, rng.randrange(2**31)))
             results = pool.map(collect, tasks) if pool is not None else [collect(t) for t in tasks]
