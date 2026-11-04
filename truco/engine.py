@@ -144,6 +144,11 @@ class TrucoHand:
             return False
         return self.truco_holder is None or self.truco_holder == self.team(seat)
 
+    def next_truco_level(self) -> int:
+        if self.pending is not None and self.pending.kind == "truco":
+            return self.pending.level + 1
+        return self.truco_level + 1
+
     def legal_actions(self) -> list[int]:
         if self._legal is None:
             self._legal = self._compute_legal()

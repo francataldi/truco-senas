@@ -22,7 +22,7 @@ class HumanAgent(Agent):
         legal = hand.legal_actions()
         show(hand, seat)
         for i, a in enumerate(legal):
-            label = A.action_name(a, hand.truco_level)
+            label = A.action_name(a, hand.next_truco_level() - 1)
             if a in A.PLAY_ACTIONS:
                 label = f"jugar {card_from_index(hand.hands[seat][a])}"
             print(f"  [{i}] {label}")
@@ -67,7 +67,7 @@ def main() -> None:
             seat = hand.current_player
             action = seats[seat].act(hand, seat)
             if seat != 0 and not A.is_signal(action):
-                label = A.action_name(action, hand.truco_level)
+                label = A.action_name(action, hand.next_truco_level() - 1)
                 if action in A.PLAY_ACTIONS:
                     label = f"juega {card_from_index(hand.hands[seat][action])}"
                 print(f"{SEAT_NAMES[seat]}: {label}")

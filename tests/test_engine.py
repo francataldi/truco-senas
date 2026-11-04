@@ -157,6 +157,19 @@ def test_truco_accepted_raises_hand_value():
     assert hand.points == [2, 0]
 
 
+def test_next_truco_level_names_the_raise():
+    hand = deal_hu([c(1, "espada"), c(1, "basto"), c(4, "copa")], [c(3, "oro"), c(2, "oro"), c(5, "copa")])
+    assert hand.next_truco_level() == 1
+    hand.step(A.TRUCO)
+    assert hand.next_truco_level() == 2
+    assert A.action_name(A.TRUCO, hand.next_truco_level() - 1) == "retruco"
+    hand.step(A.TRUCO)
+    assert A.action_name(A.TRUCO, hand.next_truco_level() - 1) == "vale cuatro"
+    hand.step(A.QUIERO)
+    assert hand.truco_level == 2
+    assert hand.next_truco_level() == 3
+
+
 def test_vale_cuatro_is_the_cap():
     hand = deal_hu([c(1, "espada"), c(1, "basto"), c(4, "copa")], [c(3, "oro"), c(2, "oro"), c(5, "copa")])
     hand.step(A.TRUCO)
