@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from agents.base import Agent, RandomAgent
-from agents.cfr import CFRAgent, infoset_key
 from agents.heuristic import HeuristicAgent
 from agents.ppo.agent import PPOAgent
 from truco import actions as A
@@ -34,19 +33,9 @@ def decide(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -
         probs, value, beliefs = agent.evaluate(hand, seat)
         action = agent.sample(probs)
         return Thought("policy", action, _over(legal, probs), value * value_scale, value, beliefs.tolist())
-    if isinstance(agent, CFRAgent):
-        strategy = agent.table.get(infoset_key(hand, seat))
-        action = agent.act(hand, seat)
-        if strategy is not None and len(strategy) == len(legal):
-            weights = strategy.astype(np.float64)
-            weights = weights / weights.sum()
-            return Thought("table", action, {a: float(w) for a, w in zip(legal, weights)})
-        return Thought("rules", action)
     if isinstance(agent, RandomAgent):
         action = agent.act(hand, seat)
         return Thought("random", action, {a: 1.0 / len(legal) for a in legal})
-    if isinstance(agent, HeuristicAgent):
-        return Thought("rules", agent.act(hand, seat))
     return Thought("rules", agent.act(hand, seat))
 
 
