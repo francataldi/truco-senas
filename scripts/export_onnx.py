@@ -33,7 +33,7 @@ def main() -> None:
     if not report["ok"]:
         print("los logits de onnxruntime no coinciden con torch", file=sys.stderr)
         sys.exit(1)
-    line = f"ok: {report['samples']} observaciones, max |Δ logits| = {report['max_abs_logits']:.2e}, misma acción greedy en el 100%"
+    line = f"ok: {report['samples']} observaciones, diferencia máxima en logits {report['max_abs_logits']:.2e}, misma acción greedy en el 100%"
     if "latency_ms" in report:
         lat = report["latency_ms"]
         line += f", {lat['torch']:.3f} ms en torch vs {lat['onnxruntime']:.3f} ms en onnxruntime por decisión"
