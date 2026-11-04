@@ -517,7 +517,7 @@ async function beginHumanTurn(state, gen) {
   table.setLocked(false);
   const partner = seatOf(2);
   if (state.phase === 'signals') {
-    controls.status('Tu seña', partner.mute ? 'Tu compañero no usa señas: cualquier gesto da igual.' : 'Elegí un gesto. Cada uno muestra lo que significa en el idioma de tu compañero.');
+    controls.status('Tu seña', partner.mute ? 'Tu compañero no usa señas: cualquier gesto da igual.' : 'Cada gesto muestra qué significa para tu compañero.');
     controls.picker(state, null, partner.mute);
     try {
       const { advice } = await api.advice(app.game.id);

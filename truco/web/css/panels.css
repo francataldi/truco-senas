@@ -565,6 +565,11 @@
   min-width: 0;
 }
 
+.mente-quien .quien-nombre {
+  flex: none;
+  white-space: nowrap;
+}
+
 .mente-contexto {
   display: inline-block;
   min-width: 0;
