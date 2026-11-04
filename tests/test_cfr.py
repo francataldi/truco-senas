@@ -6,6 +6,7 @@ import pytest
 from agents.arena import head_to_head
 from agents.base import RandomAgent
 from agents.cfr import (
+    DEFAULT_ABSTRACTION,
     MCCFR,
     Abstraction,
     CFRAgent,
@@ -51,14 +52,20 @@ def test_key_fixes_the_legal_actions():
 
 def test_key_buckets_scores():
     hands = [[0, 1, 2], [10, 11, 12]]
-    def key(scores):
-        return infoset_key(TrucoHand(HU, rng=random.Random(0), scores=scores, hands=hands), 0)
+
+    def key(scores, abstraction=DEFAULT_ABSTRACTION):
+        return infoset_key(TrucoHand(HU, rng=random.Random(0), scores=scores, hands=hands), 0, abstraction)
+
+    assert Abstraction().need_edges == (16,)
     assert key((0, 0)) == key((5, 10))
     assert key((0, 0)) != key((20, 0))
-    assert key((20, 0)) == key((22, 3))
-    assert key((26, 0)) != key((22, 0))
-    assert Abstraction().need_bucket(30) == 3
+    assert key((20, 0)) == key((26, 3))
+    assert key((14, 0)) != key((15, 0))
+    assert Abstraction().need_bucket(30) == 1
     assert Abstraction().need_bucket(2) == 0
+    finer = Abstraction(need_edges=(4, 8, 16))
+    assert key((20, 0), finer) != key((26, 0), finer)
+    assert finer.need_bucket(30) == 3
 
 
 def test_key_compacts_the_betting_history():

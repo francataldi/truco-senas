@@ -62,7 +62,7 @@ def _bucket_asc(value: int, edges: tuple[int, ...]) -> int:
 class Abstraction:
     card_edges: tuple[int, ...] = (13, 11, 9, 5)
     rival_edges: tuple[int, ...] = (11, 9, 5)
-    need_edges: tuple[int, ...] = (4, 8, 16)
+    need_edges: tuple[int, ...] = (16,)
     envido_edges: tuple[int, ...] = (24, 27, 29, 31)
     revealed_edges: tuple[int, ...] = (27, 31)
     version: int = ABSTRACTION_VERSION
