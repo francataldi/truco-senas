@@ -5,8 +5,10 @@ __pycache__/
 venv/
 *.egg-info/
 runs/
+data/
 *.pt
 *.pkl.gz
+*.onnx
 .ipynb_checkpoints/
 .vscode/
 .claude/
