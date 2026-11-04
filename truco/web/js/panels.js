@@ -334,7 +334,7 @@ export class MindPanel {
     const sub = advice ? `Qué haría ${thought.agent} en tu lugar` : thought.agent;
     const parts = [];
     parts.push(`<div class="mente-quien">${miniFace(thought.seat)}
-      <div style="min-width:0"><div class="nombre">${esc(name)} <span class="mente-contexto">${esc(thought.context)}</span></div><div class="sub" title="${esc(sub)}">${esc(sub)}</div></div></div>`);
+      <div style="min-width:0"><div class="nombre"><span class="quien-nombre">${esc(name)}</span><span class="mente-contexto" title="${esc(thought.context)}">${esc(thought.context)}</span></div><div class="sub" title="${esc(sub)}">${esc(sub)}</div></div></div>`);
     if (thought.value != null) {
       const v = thought.value;
       const pos = clamp(50 + (v / 4) * 50, 2, 98);
