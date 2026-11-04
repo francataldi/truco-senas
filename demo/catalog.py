@@ -226,9 +226,10 @@ class Catalog:
         preferred = [info for info in with_signals if info.details.get("run") == "parejas_senas"]
         partner = (preferred or with_signals or ppo or [self.resolve("heuristic")])[0].spec
         without = [info for info in ppo if not info.details.get("signals")]
+        control = [info for info in without if info.details.get("run") == "parejas_sin_senas"]
         return {
             "partner": partner,
             "rivals": "heuristic",
             "team_a": partner,
-            "team_b": without[0].spec if without else "heuristic",
+            "team_b": (control or without)[0].spec if without else "heuristic",
         }
