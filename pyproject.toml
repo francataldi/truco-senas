@@ -14,10 +14,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+demo = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+dev = ["pytest>=8.0", "ruff>=0.6", "httpx>=0.27", "httpx2>=2.0"]
 
 [tool.setuptools.packages.find]
-include = ["truco*", "agents*"]
+include = ["truco*", "agents*", "demo*"]
+
+[tool.setuptools.package-data]
+truco = ["web/*", "web/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
