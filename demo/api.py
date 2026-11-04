@@ -18,6 +18,13 @@ from .session import GameError, GameFactory, GameStore
 WEB_DIR = Path(truco.__file__).resolve().parent / "web"
 
 
+class WebFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 @dataclass
 class Settings:
     roots: list[Path] = field(default_factory=lambda: [Path("runs")])
@@ -173,5 +180,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def index() -> FileResponse:
         return FileResponse(WEB_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
-    app.mount("/", StaticFiles(directory=WEB_DIR, check_dir=False), name="web")
+    app.mount("/", WebFiles(directory=WEB_DIR, check_dir=False), name="web")
     return app
