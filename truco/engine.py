@@ -379,10 +379,11 @@ class TrucoHand:
     def team_reward(self, team: int) -> int:
         return self.points[team] - self.points[1 - team]
 
-    def clone(self) -> "TrucoHand":
+    def clone(self, fresh_rng: bool = True) -> TrucoHand:
         other = TrucoHand.__new__(TrucoHand)
         other.__dict__.update(self.__dict__)
-        other.rng = random.Random(self.rng.random())
+        if fresh_rng:
+            other.rng = random.Random(self.rng.random())
         other.hands = [list(h) for h in self.hands]
         other.envido_of = list(self.envido_of)
         other.flor_of = list(self.flor_of)
