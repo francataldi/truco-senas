@@ -10,6 +10,7 @@ from agents.heuristic import HeuristicAgent, classic_signal
 from agents.ppo.agent import PPOAgent
 from agents.ppo.net import NetConfig, build_net, load_checkpoint, save_checkpoint
 from agents.ppo.rollout import _gae, run_rollouts
+from agents.ppo.train import TrainConfig, update_threads
 from agents.signal_analysis import collect_signals, mutual_information, summarize
 from truco import actions as A
 from truco.cards import Card
@@ -136,3 +137,8 @@ def test_ppo_without_signals_plays_at_signal_table():
     assert encode(hand, 0, signals=False).shape == (obs_size(mute_rules),)
     stats = head_to_head(PAREJAS, [agent], [HeuristicAgent(seed=1)], 3, seed=0)
     assert stats.matches == 3
+
+
+def test_update_threads():
+    assert update_threads(TrainConfig(threads=3)) == 3
+    assert 1 <= update_threads(TrainConfig()) <= 4

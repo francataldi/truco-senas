@@ -4,6 +4,7 @@ import csv
 import json
 import math
 import multiprocessing as mp
+import os
 import random
 import time
 from dataclasses import asdict, dataclass, field
@@ -59,6 +60,7 @@ class TrainConfig:
     device: str = "auto"
     amp: bool = True
     resume: bool = True
+    threads: int = 0
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> TrainConfig:
@@ -182,7 +184,22 @@ def _to_tensors(state: dict) -> dict:
     return {k: torch.as_tensor(v) for k, v in state.items()}
 
 
+def update_threads(cfg: TrainConfig) -> int:
+    if cfg.threads > 0:
+        return cfg.threads
+    return max(1, min(4, (os.cpu_count() or 2) // 2))
+
+
 def evaluate(net_state: dict, rules: Rules, net_cfg: NetConfig, matches: int, seed: int) -> dict:
+    previous = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        return _evaluate(net_state, rules, net_cfg, matches, seed)
+    finally:
+        torch.set_num_threads(previous)
+
+
+def _evaluate(net_state: dict, rules: Rules, net_cfg: NetConfig, matches: int, seed: int) -> dict:
     net = build_net(rules, net_cfg)
     net.load_state_dict(_to_tensors(net_state))
     agent = PPOAgent(net, seed=seed)
@@ -204,6 +221,7 @@ def train(cfg: TrainConfig) -> Path:
     rules = Rules(**cfg.rules)
     net_cfg = NetConfig(**cfg.net)
     device = _device(cfg.device)
+    torch.set_num_threads(update_threads(cfg))
     torch.manual_seed(cfg.seed)
     rng = random.Random(cfg.seed)
     out = Path(cfg.out_dir)
