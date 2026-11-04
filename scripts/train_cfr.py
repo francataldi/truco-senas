@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agents.arena import head_to_head
 from agents.base import RandomAgent
-from agents.cfr import BYTES_PER_INFOSET_BOUND, CFRAgent, infosets_for_budget, train_parallel
+from agents.cfr import DEFAULT_MAX_INFOSETS, CFRAgent, table_capacity, train_parallel
 from agents.heuristic import HeuristicAgent
 from truco.rules import Rules
 
@@ -23,21 +23,19 @@ def main() -> None:
     parser.add_argument("--eval-matches", type=int, default=400)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--memory-gb", type=float, default=6.0)
-    parser.add_argument("--max-infosets", type=int, default=None)
+    parser.add_argument("--max-infosets", type=int, default=DEFAULT_MAX_INFOSETS)
     parser.add_argument("--report-every", type=int, default=1000)
     parser.add_argument("--zero-score-prob", type=float, default=0.3)
     parser.add_argument("--regret-mode", choices=("linear", "plus", "vanilla"), default="linear")
-    parser.add_argument("--keep-parts", action="store_true")
     args = parser.parse_args()
     rules = Rules(num_players=2, target=args.target, signals=False)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    cap = infosets_for_budget(args.memory_gb, args.workers)
-    if args.max_infosets is not None:
-        cap = min(cap, args.max_infosets)
+    cap = table_capacity(args.memory_gb, args.max_infosets, args.workers)
+    table = "compartida entre los workers" if args.workers > 1 else "dinámica"
     print(
         f"{args.workers} workers x {args.iterations // max(1, args.workers)} iteraciones, "
-        f"tope {cap} infosets por worker ({args.memory_gb:g} GB en total, cota {BYTES_PER_INFOSET_BOUND} B/infoset)",
+        f"tabla {table} con tope de {cap} infosets (presupuesto {args.memory_gb:g} GB)",
         flush=True,
     )
     start = time.time()
@@ -51,8 +49,6 @@ def main() -> None:
         max_infosets=args.max_infosets,
         zero_score_prob=args.zero_score_prob,
         regret_mode=args.regret_mode,
-        work_dir=out.parent / f"{out.stem}_partes",
-        keep_parts=args.keep_parts,
     )
     elapsed = time.time() - start
     policy.meta["seconds"] = round(elapsed, 1)
@@ -78,7 +74,7 @@ def main() -> None:
         "policy_bytes": policy.nbytes,
         "policy_bytes_per_infoset": round(policy.nbytes / max(1, len(policy)), 2),
         "file_bytes": out.stat().st_size,
-        "training_bytes_per_infoset": [r["bytes_per_infoset"] for r in finals.values()],
+        "training_bytes_per_infoset": max(r["bytes_per_infoset"] for r in finals.values()),
         "peak_rss_mb_per_worker": [round(max(x["rss_bytes"] for x in curve if x["worker"] == w) / 2**20, 1) for w in finals],
         "vs_heuristic": vs_heur.to_dict(),
         "vs_random": vs_rand.to_dict(),

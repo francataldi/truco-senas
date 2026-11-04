@@ -6,17 +6,21 @@ import pytest
 from agents.arena import head_to_head
 from agents.base import RandomAgent
 from agents.cfr import (
+    BYTES_PER_INFOSET_BOUND,
     DEFAULT_ABSTRACTION,
     MCCFR,
+    SHARED_BYTES_PER_INFOSET,
     Abstraction,
     CFRAgent,
     InfosetTable,
     Policy,
+    SharedTable,
     TablePart,
     infoset_key,
     infosets_for_budget,
     merge_parts,
     rss_bytes,
+    table_capacity,
     train_parallel,
     worker_seeds,
 )
@@ -93,17 +97,52 @@ def test_abstraction_roundtrip_and_space():
         Abstraction(revealed_edges=(20, 22, 24, 26, 28))
 
 
-def test_table_grows_and_finds_rows():
+def _fill(table, keys):
+    offsets = [table.find_or_add(k, 2 + k % 5) for k in keys]
+    expected = [0]
+    for k in keys[:-1]:
+        expected.append(expected[-1] + 2 + k % 5)
+    return offsets, expected
+
+
+def test_table_grows_and_finds_offsets():
     table = InfosetTable(bits=4)
-    rng = random.Random(1)
-    keys = rng.sample(range(1 << 62), 5000)
-    rows = [table.find_or_add(k, 2 + k % 5) for k in keys]
-    assert rows == list(range(5000))
-    assert all(table.find(k) == r for k, r in zip(keys, rows))
-    assert table.find(-5) == -1
+    keys = random.Random(1).sample(range(1 << 62), 5000)
+    offsets, expected = _fill(table, keys)
+    assert offsets == expected
+    assert all(table.find(k) == o for k, o in zip(keys, offsets))
+    assert all(table.find_or_add(k, 2 + k % 5) == o for k, o in zip(keys, offsets))
+    assert table.find(12345) == -1
     assert len(table) == 5000
     assert len(table.regret) == sum(2 + k % 5 for k in keys)
-    assert table.nbytes() < 5000 * 120
+    assert table.nbytes() < 5000 * BYTES_PER_INFOSET_BOUND
+    part = table.export()
+    assert part.keys.tolist() == sorted(keys)
+    assert np.all(np.diff(part.keys) > 0)
+
+
+def test_shared_table_is_shared_and_bounded():
+    owner = SharedTable(300)
+    try:
+        other = SharedTable.attach(owner.spec())
+        keys = random.Random(2).sample(range(1 << 62), 400)
+        offsets, expected = _fill(owner, keys[:200])
+        assert offsets == expected
+        assert all(other.find(k) == o for k, o in zip(keys[:200], offsets))
+        more = [other.find_or_add(k, 3) for k in keys[200:]]
+        assert len(owner) == 300 and other.count == 300
+        assert -1 not in more[:100] and more[100:] == [-1] * 100
+        assert owner.dropped == 100
+        other.regret[more[0]] = 2.5
+        assert owner.regret[more[0]] == 2.5
+        assert owner.add_iterations(7) == 7 and other.add_iterations(3) == 10
+        assert owner.bytes_per_infoset() < SHARED_BYTES_PER_INFOSET
+        part = owner.export()
+        assert len(part.keys) == 300
+        assert part.strategy.shape[0] == int(owner.counters[1])
+        other.close()
+    finally:
+        owner.close()
 
 
 def test_table_respects_the_cap():
@@ -194,23 +233,34 @@ def test_cfr_agent_rejects_pairs():
         CFRAgent(policy)
 
 
-def test_parallel_training_is_bounded_and_deterministic(tmp_path):
-    runs = []
-    for name in ("a", "b"):
-        policy, curve = train_parallel(HU, 40, 2, seed=7, report_every=10, max_infosets=400, work_dir=tmp_path / name, verbose=False)
-        runs.append(policy)
-        assert {row["worker"] for row in curve} == {0, 1}
-        assert all(row["infosets"] <= 400 for row in curve)
-        assert max(row["iteration"] for row in curve) == 20
-        assert not (tmp_path / name).exists()
-    assert len(runs[0]) <= 800
-    assert runs[0].meta["max_infosets_per_worker"] == 400
-    assert np.array_equal(runs[0].keys, runs[1].keys)
-    assert np.array_equal(runs[0].probs, runs[1].probs)
+def test_parallel_training_shares_one_bounded_table():
+    policy, curve = train_parallel(HU, 40, 2, seed=7, report_every=10, max_infosets=400, verbose=False)
+    assert {row["worker"] for row in curve} == {0, 1}
+    assert all(row["infosets"] <= 400 for row in curve)
+    assert max(row["iteration"] for row in curve) == 20
+    assert max(row["total_iterations"] for row in curve) == 40
+    assert policy.meta["table"] == "compartida"
+    assert policy.meta["max_infosets"] == 400
+    assert policy.meta["infosets_table"] == 400 and policy.meta["dropped"] > 0
+    assert 0 < len(policy) <= 400
+
+
+def test_single_worker_training_is_deterministic():
+    runs = [train_parallel(HU, 15, 1, seed=3, report_every=5, max_infosets=5000, verbose=False) for _ in range(2)]
+    (a, curve_a), (b, curve_b) = runs
+    assert a.meta["table"] == "dinamica"
+    assert np.array_equal(a.keys, b.keys) and np.array_equal(a.probs, b.probs)
+    assert [r["infosets"] for r in curve_a] == [r["infosets"] for r in curve_b]
 
 
 def test_budget_helpers():
-    assert infosets_for_budget(1.0, 4, bytes_per_infoset=128) == (1 << 30) // 4 // 128
+    assert infosets_for_budget(1.0, bytes_per_infoset=128) == (1 << 30) // 128
+    cap = table_capacity(1.0, None, 4)
+    assert SharedTable.bytes_for(cap) <= 1 << 30 < SharedTable.bytes_for(int(cap * 1.1))
+    assert table_capacity(6.0, 8_000_000, 5) == 8_000_000
+    assert SharedTable.bytes_for(8_000_000) < 600 * 2**20
+    assert table_capacity(1.0, 10, 4) == 10
+    assert table_capacity(0.001, 10**9, 1) == int(0.001 * (1 << 30)) // BYTES_PER_INFOSET_BOUND
     seeds = worker_seeds(0, 3)
     assert len(set(seeds)) == 3
     assert seeds == worker_seeds(0, 3)
