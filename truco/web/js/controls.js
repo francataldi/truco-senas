@@ -104,9 +104,8 @@ export class Controls {
       return `<button type="button" class="accion ${cls}" data-act="${o.action}" title="${esc(title)}">${esc(o.label)}${key ? ` <kbd>${key}</kbd>` : ''}</button>`;
     });
     const cards = state.legal.some((o) => o.kind === 'card');
-    if (cards && buttons.length) buttons.push('<span class="grupo-sep" aria-hidden="true"></span>');
     box.innerHTML = buttons.join('');
-    if (cards) box.insertAdjacentHTML('beforeend', `<span class="pista">${buttons.length ? 'o tocá una carta' : 'Tocá una carta para jugarla'}</span>`);
+    if (cards && !buttons.length) box.insertAdjacentHTML('beforeend', '<span class="pista">Tocá una carta para jugarla</span>');
   }
 
   picker(state, suggested, partnerMute) {

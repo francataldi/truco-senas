@@ -1016,12 +1016,6 @@
   color: var(--surface);
 }
 
-.grupo-sep {
-  width: 1px;
-  height: 28px;
-  background: var(--border);
-}
-
 .ritmo {
   grid-area: ritmo;
   display: flex;
