@@ -32,6 +32,7 @@ const app = {
   stepOnce: false,
   resume: null,
   humanTurn: false,
+  turnId: 0,
   sending: false,
   handEnvido: null,
   setupMode: 'play',
@@ -511,6 +512,8 @@ async function matchEnd(event, gen) {
 
 async function beginHumanTurn(state, gen) {
   app.humanTurn = true;
+  const turn = ++app.turnId;
+  const current = () => gen === app.generation && app.humanTurn && turn === app.turnId;
   table.setLocked(false);
   const partner = seatOf(2);
   if (state.phase === 'signals') {
@@ -518,7 +521,7 @@ async function beginHumanTurn(state, gen) {
     controls.picker(state, null, partner.mute);
     try {
       const { advice } = await api.advice(app.game.id);
-      if (gen !== app.generation || !app.humanTurn || !advice) return;
+      if (!current() || !advice) return;
       if (mind.enabled) mind.setAdvice(advice);
       if (advice.kind === 'policy' && advice.chosen >= 11) {
         const option = advice.options.find((o) => o.action === advice.chosen);
@@ -538,7 +541,7 @@ async function beginHumanTurn(state, gen) {
   if (mind.enabled) {
     try {
       const { advice } = await api.advice(app.game.id);
-      if (gen === app.generation && app.humanTurn && advice) mind.setAdvice(advice);
+      if (current() && advice) mind.setAdvice(advice);
     } catch (error) {
       return;
     }
