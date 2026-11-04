@@ -653,6 +653,11 @@ button.felt-chip:hover {
   color: #fff;
 }
 
+:root[data-theme="dark"] .ronda.t0,
+:root[data-theme="dark"] .ronda.t1 {
+  color: #101311;
+}
+
 .ronda.parda {
   background: rgba(255, 255, 255, 0.25);
   border-color: transparent;
