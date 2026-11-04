@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agents.arena import head_to_head
+from agents.base import limit_threads
 from agents.heuristic import HeuristicAgent
 from agents.ppo.agent import PPOAgent
 from agents.ppo.net import load_checkpoint
@@ -24,6 +25,7 @@ def main() -> None:
     out = Path(args.out) if args.out else Path(args.checkpoint).parent / "senas"
     out.mkdir(parents=True, exist_ok=True)
     agent = PPOAgent(net, seed=args.seed)
+    limit_threads()
     data = collect_signals(rules, [agent] * rules.num_players, args.hands, seed=args.seed)
     summary = summarize(data, rules.signal_vocab)
     full = head_to_head(rules, [agent], [agent], args.matches, seed=args.seed + 1, scramble_b=True)

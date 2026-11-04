@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import sys
 
 from truco.engine import TrucoHand
 
@@ -23,3 +24,9 @@ class RandomAgent(Agent):
 
     def act(self, hand: TrucoHand, seat: int) -> int:
         return self.rng.choice(hand.legal_actions())
+
+
+def limit_threads(threads: int = 1) -> None:
+    torch = sys.modules.get("torch")
+    if torch is not None:
+        torch.set_num_threads(threads)

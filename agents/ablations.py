@@ -8,7 +8,7 @@ from truco import actions as A
 from truco.rules import Rules
 
 from .arena import SignalNoise, head_to_head
-from .base import Agent
+from .base import Agent, limit_threads
 from .registry import make_agent
 from .signal_analysis import collect_signals
 from .stats import difference_summary
@@ -72,20 +72,12 @@ def condition_setup(condition: str, marginal_a: np.ndarray, marginal_b: np.ndarr
     raise ValueError(f"condición desconocida: {condition}")
 
 
-def _set_threads() -> None:
-    try:
-        import torch
-
-        torch.set_num_threads(1)
-    except ImportError:
-        pass
-
 
 def _run_condition(task: dict) -> dict:
-    _set_threads()
     rules = Rules(**task["rules"])
     agent_a = make_agent(task["a"], seed=task["seed"])
     agent_b = make_agent(task["b"], seed=task["seed"] + 1)
+    limit_threads()
     noise, constant = condition_setup(task["condition"], np.asarray(task["marginal_a"]), np.asarray(task["marginal_b"]))
     if constant is not None:
         agent_a = ConstantSignalAgent(agent_a, constant)
@@ -105,8 +97,11 @@ def run_ablations(
 ) -> dict:
     if not rules.signals:
         raise ValueError("las ablaciones de señas necesitan reglas con señas")
-    marginal_a = token_marginal(make_agent(spec_a, seed=seed + 7), rules, marginal_hands, seed=seed + 11)
-    marginal_b = marginal_a if spec_b == spec_a else token_marginal(make_agent(spec_b, seed=seed + 8), rules, marginal_hands, seed=seed + 12)
+    first = make_agent(spec_a, seed=seed + 7)
+    second = None if spec_b == spec_a else make_agent(spec_b, seed=seed + 8)
+    limit_threads()
+    marginal_a = token_marginal(first, rules, marginal_hands, seed=seed + 11)
+    marginal_b = marginal_a if second is None else token_marginal(second, rules, marginal_hands, seed=seed + 12)
     tasks = [
         {
             "rules": rules.to_dict(),
