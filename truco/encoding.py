@@ -73,9 +73,9 @@ def layout_for(rules: Rules) -> Layout:
     return layout(rules.num_players, rules.signal_vocab, rules.signals)
 
 
-def encode(hand: TrucoHand, seat: int, out: np.ndarray | None = None) -> np.ndarray:
+def encode(hand: TrucoHand, seat: int, out: np.ndarray | None = None, signals: bool | None = None) -> np.ndarray:
     rules = hand.rules
-    L = layout(hand.n, rules.signal_vocab, rules.signals)
+    L = layout(hand.n, rules.signal_vocab, rules.signals if signals is None else signals)
     n = hand.n
     if out is None:
         v = np.zeros(L.size, dtype=np.float32)
