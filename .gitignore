@@ -12,3 +12,5 @@ data/
 .ipynb_checkpoints/
 .vscode/
 .claude/
+data/
+*.npz
