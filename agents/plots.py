@@ -221,23 +221,31 @@ def plot_grouped_bars(
 def plot_infoset_curve(curve: list[dict], path: str | Path, title: str = "MCCFR: infosets contra iteraciones") -> None:
     plt = pyplot()
     fig, (left, right) = plt.subplots(1, 2, figsize=(10.0, 3.8))
-    workers = sorted({int(r["worker"]) for r in curve})
-    for i, w in enumerate(workers):
-        rows = sorted((r for r in curve if int(r["worker"]) == w), key=lambda r: int(r["iteration"]))
-        it = np.array([int(r["iteration"]) for r in rows], dtype=float)
-        count = np.array([int(r["infosets"]) for r in rows], dtype=float)
+    shared = any("total_iterations" in r and int(r["total_iterations"]) != int(r["iteration"]) for r in curve)
+    if shared:
+        groups = [("tabla compartida", sorted(curve, key=lambda r: int(r["total_iterations"])), "total_iterations")]
+        xlabel = "iteraciones sumando todos los workers"
+    else:
+        workers = sorted({int(r["worker"]) for r in curve})
+        groups = [(f"worker {w}", sorted((r for r in curve if int(r["worker"]) == w), key=lambda r: int(r["iteration"])), "iteration") for w in workers]
+        xlabel = "iteraciones"
+    for i, (label, rows, key) in enumerate(groups):
+        it = np.array([float(r[key]) for r in rows])
+        count = np.array([float(r["infosets"]) for r in rows])
         color = series_color(i)
-        left.plot(it, count / 1e6, color=color, label=f"worker {w}")
+        left.plot(it, count / 1e6, color=color, label=label)
         if len(it) > 1:
-            rate = np.diff(count) / np.diff(it) * 1000.0
-            right.plot(it[1:], np.maximum(rate, 1e-3), color=color, label=f"worker {w}")
+            step = np.diff(it)
+            keep = step > 0
+            rate = np.diff(count)[keep] / step[keep] * 1000.0
+            right.plot(it[1:][keep], np.maximum(rate, 1e-3), color=color, label=label)
     left.set_title(title, loc="left")
-    left.set_xlabel("iteraciones por worker")
+    left.set_xlabel(xlabel)
     left.set_ylabel("infosets (millones)")
     right.set_title("infosets nuevos cada 1000 iteraciones", loc="left")
-    right.set_xlabel("iteraciones por worker")
+    right.set_xlabel(xlabel)
     right.set_yscale("log")
-    if len(workers) > 1:
+    if len(groups) > 1:
         left.legend(loc="lower right")
     fig.tight_layout()
     _save(fig, path)

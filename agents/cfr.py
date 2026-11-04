@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import multiprocessing as mp
 import os
 import random
-import shutil
 import sys
 import time
 from array import array
@@ -27,6 +27,9 @@ EMPTY = -1
 GOLDEN = 0x9E3779B97F4A7C15
 MASK64 = (1 << 64) - 1
 BYTES_PER_INFOSET_BOUND = 128
+SHARED_ENTRIES_PER_INFOSET = 4.0
+SHARED_BYTES_PER_INFOSET = 64
+DEFAULT_MAX_INFOSETS = 8_000_000
 REGRET_MODES = ("linear", "plus", "vanilla")
 
 _E, _R, _F = A.ENVIDO, A.REAL_ENVIDO, A.FALTA_ENVIDO
@@ -237,12 +240,23 @@ def regret_matching(regrets) -> np.ndarray:
     return np.full(len(positive), 1.0 / len(positive))
 
 
+def _part_from_slots(slot_keys, slot_meta, strategy, used_entries: int) -> TablePart:
+    keys_view = np.frombuffer(slot_keys, dtype=np.int64)
+    meta_view = np.frombuffer(slot_meta, dtype=np.int64)
+    used = np.flatnonzero(keys_view)
+    keys = keys_view[used] - 1
+    meta = meta_view[used]
+    del keys_view, meta_view
+    order = np.argsort(keys, kind="stable")
+    keys, meta = keys[order], meta[order]
+    values = np.frombuffer(strategy, dtype=np.float32)[:used_entries].copy()
+    return TablePart(keys=keys, sizes=(meta & 0xFF).astype(np.uint8), offsets=meta >> 8, strategy=values)
+
+
 class InfosetTable:
     def __init__(self, max_infosets: int | None = None, bits: int = 12, load: float = 0.6) -> None:
         self.max_infosets = max_infosets
         self.load = load
-        self.offsets = array("q")
-        self.sizes = array("B")
         self.regret = array("f")
         self.strategy = array("f")
         self.count = 0
@@ -254,85 +268,227 @@ class InfosetTable:
         self.bits = bits
         self.shift = 64 - bits
         self.mask = (1 << bits) - 1
-        self.slot_keys = array("q", [EMPTY]) * (1 << bits)
-        self.slot_rows = array("i", [0]) * (1 << bits)
+        self.slot_keys = array("q", [0]) * (1 << bits)
+        self.slot_meta = array("q", [0]) * (1 << bits)
         self.limit = int(self.load * (1 << bits))
 
     def __len__(self) -> int:
         return self.count
 
     def find(self, key: int) -> int:
+        stored = key + 1
         keys = self.slot_keys
         mask = self.mask
         slot = ((key * GOLDEN) & MASK64) >> self.shift
         while True:
             k = keys[slot]
-            if k == key:
-                return self.slot_rows[slot]
-            if k == EMPTY:
+            if k == stored:
+                return self.slot_meta[slot] >> 8
+            if k == 0:
                 return -1
             slot = (slot + 1) & mask
 
     def find_or_add(self, key: int, size: int) -> int:
+        stored = key + 1
         keys = self.slot_keys
         mask = self.mask
         slot = ((key * GOLDEN) & MASK64) >> self.shift
         while True:
             k = keys[slot]
-            if k == key:
-                return self.slot_rows[slot]
-            if k == EMPTY:
+            if k == stored:
+                return self.slot_meta[slot] >> 8
+            if k == 0:
                 break
             slot = (slot + 1) & mask
         if self.max_infosets is not None and self.count >= self.max_infosets:
             self.dropped += 1
             return -1
-        row = self.count
-        keys[slot] = key
-        self.slot_rows[slot] = row
-        self.offsets.append(len(self.regret))
-        self.sizes.append(size)
+        offset = len(self.regret)
+        keys[slot] = stored
+        self.slot_meta[slot] = (offset << 8) | size
         zeros = self._zeros[size]
         self.regret.extend(zeros)
         self.strategy.extend(zeros)
-        self.count = row + 1
+        self.count += 1
         if self.count > self.limit:
             self._grow()
-        return row
+        return offset
 
     def _grow(self) -> None:
         old_keys = self.slot_keys
-        old_rows = self.slot_rows
+        old_meta = self.slot_meta
         self._init_slots(self.bits + 1)
         keys = self.slot_keys
-        rows = self.slot_rows
+        metas = self.slot_meta
         mask = self.mask
         shift = self.shift
-        for key, row in zip(old_keys, old_rows):
-            if key == EMPTY:
+        for stored, meta in zip(old_keys, old_meta):
+            if stored == 0:
                 continue
-            slot = ((key * GOLDEN) & MASK64) >> shift
-            while keys[slot] != EMPTY:
+            slot = (((stored - 1) * GOLDEN) & MASK64) >> shift
+            while keys[slot] != 0:
                 slot = (slot + 1) & mask
-            keys[slot] = key
-            rows[slot] = row
+            keys[slot] = stored
+            metas[slot] = meta
 
     def nbytes(self) -> int:
-        return sum(sys.getsizeof(x) for x in (self.slot_keys, self.slot_rows, self.offsets, self.sizes, self.regret, self.strategy))
+        return sum(sys.getsizeof(x) for x in (self.slot_keys, self.slot_meta, self.regret, self.strategy))
+
+    def bytes_per_infoset(self) -> float:
+        return self.nbytes() / max(1, self.count)
 
     def export(self) -> TablePart:
-        slot_keys = np.frombuffer(self.slot_keys, dtype=np.int64)
-        slot_rows = np.frombuffer(self.slot_rows, dtype=np.int32)
-        used = slot_keys != EMPTY
-        keys = np.empty(self.count, dtype=np.int64)
-        keys[slot_rows[used]] = slot_keys[used]
-        order = np.argsort(keys, kind="stable")
-        return TablePart(
-            keys=keys[order],
-            sizes=np.frombuffer(self.sizes, dtype=np.uint8)[order],
-            offsets=np.frombuffer(self.offsets, dtype=np.int64)[order],
-            strategy=np.frombuffer(self.strategy, dtype=np.float32),
-        )
+        return _part_from_slots(self.slot_keys, self.slot_meta, self.strategy, len(self.strategy))
+
+
+class SharedTable:
+    BLOCKS = ("keys", "meta", "regret", "strategy", "counters")
+
+    def __init__(
+        self,
+        max_infosets: int,
+        entries_per_infoset: float = SHARED_ENTRIES_PER_INFOSET,
+        load: float = 0.5,
+        names: dict | None = None,
+        lock=None,
+    ) -> None:
+        from multiprocessing import shared_memory
+
+        self.max_infosets = max(1, int(max_infosets))
+        self.entries_per_infoset = float(entries_per_infoset)
+        self.load = float(load)
+        sizes = self.block_sizes(self.max_infosets, self.entries_per_infoset, self.load)
+        slots = sizes["keys"] // 8
+        self.bits = slots.bit_length() - 1
+        self.shift = 64 - self.bits
+        self.mask = slots - 1
+        self.entries = sizes["regret"] // 4
+        self.owner = names is None
+        self._blocks = {}
+        try:
+            for name in self.BLOCKS:
+                if self.owner:
+                    self._blocks[name] = shared_memory.SharedMemory(create=True, size=sizes[name])
+                else:
+                    self._blocks[name] = shared_memory.SharedMemory(name=names[name])
+        except BaseException:
+            self._release_blocks()
+            raise
+        self.allocated = sum(sizes.values())
+        self.slot_keys = self._blocks["keys"].buf.cast("q")
+        self.slot_meta = self._blocks["meta"].buf.cast("q")
+        self.regret = self._blocks["regret"].buf.cast("f")
+        self.strategy = self._blocks["strategy"].buf.cast("f")
+        self.counters = self._blocks["counters"].buf.cast("q")
+        self.lock = lock if lock is not None else contextlib.nullcontext()
+
+    @staticmethod
+    def block_sizes(max_infosets: int, entries_per_infoset: float = SHARED_ENTRIES_PER_INFOSET, load: float = 0.5) -> dict:
+        slots = 1 << max(4, (int(math.ceil(max(1, max_infosets) / load)) - 1).bit_length())
+        entries = int(max(1, max_infosets) * entries_per_infoset) + 64
+        return {"keys": 8 * slots, "meta": 8 * slots, "regret": 4 * entries, "strategy": 4 * entries, "counters": 64}
+
+    @classmethod
+    def bytes_for(cls, max_infosets: int, entries_per_infoset: float = SHARED_ENTRIES_PER_INFOSET, load: float = 0.5) -> int:
+        return sum(cls.block_sizes(max_infosets, entries_per_infoset, load).values())
+
+    def spec(self) -> dict:
+        return {
+            "max_infosets": self.max_infosets,
+            "entries_per_infoset": self.entries_per_infoset,
+            "load": self.load,
+            "names": {name: block.name for name, block in self._blocks.items()},
+        }
+
+    @classmethod
+    def attach(cls, spec: dict, lock=None) -> SharedTable:
+        return cls(spec["max_infosets"], spec["entries_per_infoset"], spec["load"], names=spec["names"], lock=lock)
+
+    def __len__(self) -> int:
+        return int(self.counters[0])
+
+    @property
+    def count(self) -> int:
+        return int(self.counters[0])
+
+    @property
+    def dropped(self) -> int:
+        return int(self.counters[2])
+
+    def add_iterations(self, n: int) -> int:
+        with self.lock:
+            self.counters[3] += n
+            return int(self.counters[3])
+
+    def find(self, key: int) -> int:
+        stored = key + 1
+        keys = self.slot_keys
+        mask = self.mask
+        slot = ((key * GOLDEN) & MASK64) >> self.shift
+        while True:
+            k = keys[slot]
+            if k == stored:
+                return self.slot_meta[slot] >> 8
+            if k == 0:
+                return -1
+            slot = (slot + 1) & mask
+
+    def find_or_add(self, key: int, size: int) -> int:
+        stored = key + 1
+        keys = self.slot_keys
+        mask = self.mask
+        slot = ((key * GOLDEN) & MASK64) >> self.shift
+        while True:
+            k = keys[slot]
+            if k == stored:
+                return self.slot_meta[slot] >> 8
+            if k == 0:
+                break
+            slot = (slot + 1) & mask
+        with self.lock:
+            while True:
+                k = keys[slot]
+                if k == stored:
+                    return self.slot_meta[slot] >> 8
+                if k == 0:
+                    break
+                slot = (slot + 1) & mask
+            counters = self.counters
+            count = counters[0]
+            used = counters[1]
+            if count >= self.max_infosets or used + size > self.entries:
+                counters[2] += 1
+                return -1
+            self.slot_meta[slot] = (used << 8) | size
+            keys[slot] = stored
+            counters[0] = count + 1
+            counters[1] = used + size
+            return used
+
+    def nbytes(self) -> int:
+        return self.allocated
+
+    def bytes_per_infoset(self) -> float:
+        count = max(1, self.count)
+        return 16.0 / self.load + 8.0 * int(self.counters[1]) / count
+
+    def export(self) -> TablePart:
+        return _part_from_slots(self.slot_keys, self.slot_meta, self.strategy, int(self.counters[1]))
+
+    def _release_blocks(self) -> None:
+        for block in self._blocks.values():
+            block.close()
+            if self.owner:
+                block.unlink()
+        self._blocks = {}
+
+    def close(self) -> None:
+        for name in ("slot_keys", "slot_meta", "regret", "strategy", "counters"):
+            view = getattr(self, name, None)
+            if view is not None:
+                view.release()
+                setattr(self, name, None)
+        self._release_blocks()
 
 
 @dataclass
@@ -481,6 +637,7 @@ class MCCFR:
         abstraction: Abstraction | None = None,
         max_infosets: int | None = None,
         zero_score_prob: float = 0.3,
+        table: InfosetTable | SharedTable | None = None,
     ) -> None:
         if rules.num_players != 2:
             raise ValueError("MCCFR baseline is for heads-up truco")
@@ -494,7 +651,7 @@ class MCCFR:
         self.plus = regret_mode == "plus"
         self.regret_weight = 1.0
         self.zero_score_prob = zero_score_prob
-        self.table = InfosetTable(max_infosets)
+        self.table = table if table is not None else InfosetTable(max_infosets)
         self.iterations = 0
         self.visits = 0
 
@@ -519,12 +676,10 @@ class MCCFR:
         legal = hand.legal_actions()
         n = len(legal)
         table = self.table
-        row = table.find_or_add(self.key(hand, seat), n)
-        if row < 0:
-            off = -1
+        off = table.find_or_add(self.key(hand, seat), n)
+        if off < 0:
             sigma = [1.0 / n] * n
         else:
-            off = table.offsets[row]
             sigma = self._sigma(off, n)
         if seat == traverser:
             utils = [0.0] * n
@@ -580,12 +735,10 @@ class MCCFR:
             self.traverse(hand.clone(fresh_rng=False), traverser, weight)
 
     def stats(self) -> dict:
-        count = len(self.table)
-        nbytes = self.table.nbytes()
         return {
-            "infosets": count,
-            "table_bytes": nbytes,
-            "bytes_per_infoset": round(nbytes / max(1, count), 2),
+            "infosets": len(self.table),
+            "table_bytes": self.table.nbytes(),
+            "bytes_per_infoset": round(self.table.bytes_per_infoset(), 2),
             "dropped": self.table.dropped,
             "visits": self.visits,
         }
@@ -642,42 +795,82 @@ def rss_bytes() -> int:
     return int(peak if sys.platform == "darwin" else peak * 1024)
 
 
-def infosets_for_budget(memory_gb: float, workers: int, bytes_per_infoset: int = BYTES_PER_INFOSET_BOUND) -> int:
-    return max(1, int(memory_gb * (1 << 30) / max(1, workers) / bytes_per_infoset))
+def infosets_for_budget(memory_gb: float, bytes_per_infoset: int = SHARED_BYTES_PER_INFOSET) -> int:
+    return max(1, int(memory_gb * (1 << 30) / bytes_per_infoset))
+
+
+def table_capacity(memory_gb: float, max_infosets: int | None, workers: int) -> int:
+    if workers <= 1:
+        cap = infosets_for_budget(memory_gb, BYTES_PER_INFOSET_BOUND)
+        return cap if max_infosets is None else max(1, min(cap, int(max_infosets)))
+    budget = memory_gb * (1 << 30)
+    cap = infosets_for_budget(memory_gb, SHARED_BYTES_PER_INFOSET)
+    if max_infosets is not None:
+        cap = max(1, min(cap, int(max_infosets)))
+    while cap > 1 and SharedTable.bytes_for(cap) > budget:
+        cap = int(cap * 0.95)
+    return cap
 
 
 def worker_seeds(seed: int, workers: int) -> list[int]:
     return [int(s.generate_state(1)[0]) for s in np.random.SeedSequence(seed).spawn(workers)]
 
 
-def _worker(task: dict) -> dict:
-    solver = MCCFR(
+_SHARED: dict = {}
+
+
+def _attach_shared(spec: dict, lock) -> None:
+    _SHARED["table"] = SharedTable.attach(spec, lock)
+
+
+def _make_solver(task: dict, table=None) -> MCCFR:
+    return MCCFR(
         Rules(**task["rules"]),
         seed=task["seed"],
         abstraction=Abstraction.from_dict(task["abstraction"]),
         max_infosets=task["max_infosets"],
         zero_score_prob=task["zero_score_prob"],
         regret_mode=task["regret_mode"],
+        table=table,
     )
+
+
+def _run_iterations(solver: MCCFR, task: dict) -> list[dict]:
     curve = []
     start = time.perf_counter()
     total = task["iterations"]
     every = max(1, task["report_every"])
+    shared = isinstance(solver.table, SharedTable)
+    done = 0
     for i in range(1, total + 1):
         solver.iterate()
         if i % every == 0 or i == total:
             elapsed = time.perf_counter() - start
-            row = {"worker": task["worker"], "iteration": i, "seconds": round(elapsed, 2), **solver.stats(), "rss_bytes": rss_bytes()}
+            overall = solver.table.add_iterations(i - done) if shared else i
+            done = i
+            row = {
+                "worker": task["worker"],
+                "iteration": i,
+                "total_iterations": overall,
+                "seconds": round(elapsed, 2),
+                **solver.stats(),
+                "rss_bytes": rss_bytes(),
+            }
             curve.append(row)
             if task["verbose"]:
                 print(
-                    f"[worker {task['worker']}] {i}/{total} iteraciones, {i / max(elapsed, 1e-9):.0f} it/s, "
+                    f"[worker {task['worker']}] {i}/{total} iteraciones ({overall} en total), {i / max(elapsed, 1e-9):.0f} it/s, "
                     f"{row['infosets']} infosets, {row['bytes_per_infoset']:.0f} B/infoset, "
                     f"RSS {row['rss_bytes'] / 2**20:.0f} MB, descartados {row['dropped']}",
                     flush=True,
                 )
-    solver.export().save(task["part"])
-    return {"worker": task["worker"], "curve": curve, "part": task["part"], "stats": solver.stats()}
+    return curve
+
+
+def _shared_worker(task: dict) -> dict:
+    solver = _make_solver(task, table=_SHARED["table"])
+    curve = _run_iterations(solver, task)
+    return {"worker": task["worker"], "curve": curve, "visits": solver.visits}
 
 
 def train_parallel(
@@ -687,21 +880,16 @@ def train_parallel(
     seed: int = 0,
     report_every: int = 1000,
     memory_gb: float = 6.0,
-    max_infosets: int | None = None,
+    max_infosets: int | None = DEFAULT_MAX_INFOSETS,
     abstraction: Abstraction | None = None,
     zero_score_prob: float = 0.3,
     regret_mode: str = "linear",
-    work_dir: str | Path | None = None,
     verbose: bool = True,
-    keep_parts: bool = False,
 ) -> tuple[Policy, list[dict]]:
     abstraction = abstraction or DEFAULT_ABSTRACTION
     workers = max(1, workers)
     per_worker = max(1, iterations // workers)
-    cap = infosets_for_budget(memory_gb, workers)
-    if max_infosets is not None:
-        cap = min(cap, max(1, max_infosets))
-    folder = Path(work_dir) if work_dir is not None else Path("runs") / "cfr" / "partes"
+    cap = table_capacity(memory_gb, max_infosets, workers)
     tasks = [
         {
             "rules": rules.to_dict(),
@@ -713,34 +901,37 @@ def train_parallel(
             "max_infosets": cap,
             "zero_score_prob": zero_score_prob,
             "regret_mode": regret_mode,
-            "part": str(folder / f"worker_{w}"),
-            "verbose": verbose and (w == 0 or workers == 1),
+            "verbose": verbose and w == 0,
         }
         for w, s in enumerate(worker_seeds(seed, workers))
     ]
-    if workers == 1:
-        results = [_worker(tasks[0])]
-    else:
-        with mp.get_context("spawn").Pool(workers) as pool:
-            results = pool.map(_worker, tasks)
-    results.sort(key=lambda r: r["worker"])
-    parts = [TablePart.load(r["part"]) for r in results]
     meta = {
         "iterations": per_worker * workers,
         "workers": workers,
         "seed": seed,
-        "max_infosets_per_worker": cap,
+        "max_infosets": cap,
         "zero_score_prob": zero_score_prob,
         "regret_mode": regret_mode,
-        "infosets_per_worker": [r["stats"]["infosets"] for r in results],
-        "dropped_per_worker": [r["stats"]["dropped"] for r in results],
+        "table": "dinamica" if workers == 1 else "compartida",
     }
-    policy = build_policy(parts, rules, abstraction, meta)
-    del parts
-    if not keep_parts:
-        shutil.rmtree(folder, ignore_errors=True)
+    if workers == 1:
+        solver = _make_solver(tasks[0])
+        curve = _run_iterations(solver, tasks[0])
+        meta.update(infosets_table=len(solver.table), dropped=solver.table.dropped, table_bytes=solver.table.nbytes())
+        return build_policy([solver.export()], rules, abstraction, meta), curve
+    ctx = mp.get_context("spawn")
+    lock = ctx.Lock()
+    table = SharedTable(cap, lock=lock)
+    try:
+        with ctx.Pool(workers, initializer=_attach_shared, initargs=(table.spec(), lock)) as pool:
+            results = pool.map(_shared_worker, tasks)
+        meta.update(infosets_table=len(table), dropped=table.dropped, table_bytes=table.nbytes())
+        part = table.export()
+    finally:
+        table.close()
+    results.sort(key=lambda r: r["worker"])
     curve = [row for r in results for row in r["curve"]]
-    return policy, curve
+    return build_policy([part], rules, abstraction, meta), curve
 
 
 def save_table(policy: Policy, path: str | Path) -> None:
