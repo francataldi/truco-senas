@@ -994,6 +994,12 @@
   color: #fff;
 }
 
+:root[data-theme="dark"] .accion.truco,
+:root[data-theme="dark"] .accion.envido,
+:root[data-theme="dark"] .accion.quiero {
+  color: #101311;
+}
+
 .accion.no-quiero {
   background: var(--surface-3);
   color: var(--text);
@@ -1139,7 +1145,7 @@
   padding: 0 6px;
   border-radius: 999px;
   background: var(--gold);
-  color: #fff;
+  color: #1f1a10;
   font-size: 10px;
   font-weight: 700;
   line-height: 16px;
