@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-import truco
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+import truco
 
 from .catalog import HUMAN, Catalog, SpecError
 from .dictionary import DictionaryService, dictionary_file
