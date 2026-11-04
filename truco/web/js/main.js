@@ -328,10 +328,20 @@ async function pump(gen) {
       if (!(await advance(gen))) break;
     }
   } catch (error) {
-    toast(error.message || 'Algo salió mal', 'error');
+    if (gen === app.generation) lost(error);
   } finally {
     if (app.pumpGen === gen) app.pumpGen = null;
   }
+}
+
+function lost(error) {
+  if (error.status === 404) {
+    toast('Esta partida ya no está en el servidor. Empezá una nueva.', 'error');
+    app.generation += 1;
+    openSetup(app.game ? app.game.mode : null);
+    return;
+  }
+  toast(error.message || 'Algo salió mal', 'error');
 }
 
 async function advance(gen) {
@@ -367,6 +377,7 @@ function bubbleForSignal(event) {
 }
 
 async function handle(event, gen) {
+  if (gen !== app.generation) return;
   switch (event.type) {
     case 'deal':
       table.hideOverlay();
@@ -379,6 +390,7 @@ async function handle(event, gen) {
       const from = table.sourceRect(event.seat, event.slot);
       table.render(event.state);
       await table.flyCard(event.seat, event.round, from, FLIGHT / app.speed);
+      if (gen !== app.generation) return;
       break;
     }
     case 'signal': {
@@ -412,6 +424,7 @@ async function handle(event, gen) {
     default:
       table.render(event.state);
   }
+  if (gen !== app.generation) return;
   app.state = event.state;
   score.render(event.state.scores);
   log.add(event, app.game);
@@ -432,7 +445,10 @@ function statusFor(event) {
   if (state.phase === 'play' || state.phase === 'signals') {
     if (state.turn !== app.game.viewer) {
       const who = seatOf(state.turn).role;
-      controls.status(state.phase === 'signals' ? `${who} hace su seña` : `Juega ${who}`, event.text, true);
+      let title = `Juega ${who}`;
+      if (state.phase === 'signals') title = `${who} hace su seña`;
+      else if (state.pending) title = `${who} responde`;
+      controls.status(title, event.text, true);
       controls.clear();
     }
   }
@@ -518,7 +534,7 @@ async function beginHumanTurn(state, gen) {
   const mine = state.seats[app.game.viewer].envido;
   if (pending && pending.kind === 'truco') controls.status(`Te cantaron ${pending.name}`, '¿Querés? También podés subir la apuesta.');
   else if (pending) controls.status(`Te cantaron ${pending.name}`, `Tenés ${mine} de envido.`);
-  else controls.status('Tu turno', state.legal.some((o) => o.kind === 'card') ? 'Jugá una carta con 1, 2, 3 o cantá.' : 'Elegí qué hacer.');
+  else controls.status('Tu turno', state.legal.some((o) => o.kind === 'card') ? 'Jugá una carta o cantá.' : 'Elegí qué hacer.');
   controls.actions(state);
   if (mind.enabled) {
     try {
@@ -547,6 +563,10 @@ async function humanAction(action) {
     app.seq = data.seq;
     enqueue(data.events);
   } catch (error) {
+    if (error.status === 404) {
+      lost(error);
+      return;
+    }
     toast(error.message, 'error');
     if (error.status === 409) await resync(gen).catch(() => null);
     else {
