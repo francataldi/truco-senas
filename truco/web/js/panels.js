@@ -362,7 +362,8 @@ export class MindPanel {
       const more = rest > 0 ? ` · ${rest} más` : '';
       parts.push(`<div><div class="seccion-titulo">${esc(title)} <span>${thought.options.length} legales${more}</span></div><ul class="probs">${rows.join('')}</ul></div>`);
     } else if (thought.kind === 'rules') {
-      parts.push(`<div class="reglas-nota">Decide con reglas fijas, sin probabilidades. Eligió <b>${esc(thought.chosen_label)}</b>.</div>`);
+      const verb = advice ? 'En tu lugar haría' : 'Eligió';
+      parts.push(`<div class="reglas-nota">Decide con reglas fijas, sin probabilidades. ${verb} <b>${esc(thought.chosen_label)}</b>.</div>`);
     }
     if (thought.beliefs) {
       const rows = thought.beliefs.map((b) => {

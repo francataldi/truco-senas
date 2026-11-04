@@ -430,7 +430,7 @@ class GameSession:
             if p.kind == "truco":
                 name = truco_name(p.level)
             else:
-                name = " ".join(ENVIDO_NAMES[c] for c in hand.envido_calls)
+                name = ", ".join(ENVIDO_NAMES[c] for c in hand.envido_calls)
             pending = {"kind": p.kind, "caller": p.caller, "responder": p.responder, "level": p.level, "name": name}
         signals = []
         for s in range(hand.n):
