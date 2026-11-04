@@ -33,6 +33,9 @@ class TrucoHand:
         mano: int = 0,
         hands: list[list[int]] | None = None,
         scramble_teams: tuple[int, ...] = (),
+        scramble_rival_teams: tuple[int, ...] = (),
+        blind_teams: tuple[int, ...] = (),
+        noise: tuple[tuple[float, ...] | None, tuple[float, ...] | None] | None = None,
     ) -> None:
         self.rules = rules
         self.rng = rng if rng is not None else random.Random()
@@ -50,6 +53,9 @@ class TrucoHand:
         self.flor_of = [has_flor(h) for h in self.hands]
         self._legal: list[int] | None = None
         self.scramble_teams = tuple(scramble_teams)
+        self.scramble_rival_teams = tuple(scramble_rival_teams)
+        self.blind_teams = tuple(blind_teams)
+        self.noise = None if noise is None else tuple(None if d is None else tuple(float(x) for x in d) for d in noise)
         self.played_slot = [[False, False, False] for _ in range(self.n)]
         self.table: list[list[int | None]] = [[None] * self.n for _ in range(3)]
         self.round = 0
@@ -199,18 +205,28 @@ class TrucoHand:
         elif action == A.FLOR:
             self._flor(seat)
 
+    def _noise_token(self, team: int) -> int:
+        dist = None if self.noise is None else self.noise[team]
+        if dist is None:
+            return self.rng.randrange(self.rules.signal_vocab)
+        return self.rng.choices(range(self.rules.signal_vocab), weights=dist)[0]
+
     def _signal(self, seat: int, token: int) -> None:
         self.signals_sent[seat] = token
+        team = self.team(seat)
         for observer in range(self.n):
             if observer == seat:
                 self.signal_view[observer][seat] = token
-            elif self.team(observer) == self.team(seat):
-                if self.team(seat) in self.scramble_teams:
-                    self.signal_view[observer][seat] = self.rng.randrange(self.rules.signal_vocab)
+            elif self.team(observer) == team:
+                if team in self.scramble_teams:
+                    self.signal_view[observer][seat] = self._noise_token(team)
                 else:
                     self.signal_view[observer][seat] = token
-            elif self.rng.random() < self.rules.spy_prob:
-                self.signal_view[observer][seat] = token
+            elif self.rng.random() < self.rules.spy_prob and self.team(observer) not in self.blind_teams:
+                if self.team(observer) in self.scramble_rival_teams:
+                    self.signal_view[observer][seat] = self._noise_token(team)
+                else:
+                    self.signal_view[observer][seat] = token
         self.signals_count += 1
         if self.signals_count >= self.n:
             self.signal_phase = False
@@ -421,13 +437,22 @@ class TrucoMatch:
             return None
         return 0 if self.scores[0] >= self.rules.target else 1
 
-    def new_hand(self, scramble_teams: tuple[int, ...] = ()) -> TrucoHand:
+    def new_hand(
+        self,
+        scramble_teams: tuple[int, ...] = (),
+        scramble_rival_teams: tuple[int, ...] = (),
+        blind_teams: tuple[int, ...] = (),
+        noise: tuple[tuple[float, ...] | None, tuple[float, ...] | None] | None = None,
+    ) -> TrucoHand:
         self.hand = TrucoHand(
             self.rules,
             rng=random.Random(self.rng.random()),
             scores=(self.scores[0], self.scores[1]),
             mano=self.mano,
             scramble_teams=scramble_teams,
+            scramble_rival_teams=scramble_rival_teams,
+            blind_teams=blind_teams,
+            noise=noise,
         )
         return self.hand
 

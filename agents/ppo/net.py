@@ -65,6 +65,11 @@ def save_checkpoint(path, net: TrucoNet, rules: Rules, extra: dict | None = None
     torch.save(payload, path)
 
 
+def read_checkpoint_rules(path) -> Rules:
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    return Rules(**payload["rules"])
+
+
 def load_checkpoint(path, device: str = "cpu") -> tuple[TrucoNet, Rules, dict]:
     payload = torch.load(path, map_location=device, weights_only=False)
     rules = Rules(**payload["rules"])
