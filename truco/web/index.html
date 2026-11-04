@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Truco con señas</title>
+  <meta name="description" content="Truco argentino en parejas contra agentes PPO que inventaron su propio idioma de señas.">
+  <meta name="theme-color" content="#19563b">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/table.css">
+  <link rel="stylesheet" href="css/panels.css">
+  <script>
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem('truco-tema'); } catch (e) {}
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="4" y="6" width="20" height="29" rx="3.5" fill="#fffaf0" stroke="#cdbb96" transform="rotate(-12 14 20)"/>
+        <rect x="15" y="4" width="20" height="29" rx="3.5" fill="#fffaf0" stroke="#cdbb96" transform="rotate(10 25 18)"/>
+        <g transform="rotate(10 25 18)">
+          <path d="M25 9.5 26.6 12.3V22H23.4V12.3Z" fill="#5d8fca" stroke="#1f4470" stroke-width="0.8" stroke-linejoin="round"/>
+          <path d="M20.8 22H29.2V23.6H20.8Z" fill="#e2b33d" stroke="#8a5d05" stroke-width="0.6"/>
+          <rect x="24.1" y="23.6" width="1.8" height="3.4" fill="#6b3f1d"/>
+          <circle cx="25" cy="28" r="1.3" fill="#e2b33d"/>
+        </g>
+      </svg>
+      <div>
+        <h1>Truco con señas</h1>
+        <p>Agentes PPO que inventaron su propio idioma para jugar en pareja</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span class="mode-pill" id="mode-pill"><span class="dot"></span><span id="mode-text">Preparando</span></span>
+      <button class="btn btn-primary" id="btn-nueva" type="button">Nueva<span class="sm-hide"> partida</span></button>
+      <button class="icon-btn" id="btn-tema" type="button" aria-label="Cambiar entre modo claro y oscuro" title="Modo claro u oscuro">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path class="icon-sol" d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>
+          <circle cx="12" cy="12" r="4"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout" id="layout" data-tab="senas">
+    <aside class="col col-side col-left" aria-label="Marcador y mente del agente">
+      <section class="panel marcador" data-pane="marcador" aria-labelledby="marcador-titulo">
+        <div class="panel-head">
+          <h2 id="marcador-titulo">Marcador</h2>
+          <span class="hint" id="marcador-hint">a 30, malas y buenas</span>
+        </div>
+        <div class="panel-body" id="marcador"></div>
+      </section>
+      <section class="panel mente" data-pane="mente" aria-labelledby="mente-titulo">
+        <div class="panel-head">
+          <h2 id="mente-titulo">Mente del agente</h2>
+          <label class="switch">
+            <input type="checkbox" id="mente-toggle" checked>
+            <span class="track"></span>
+            <span>Activa</span>
+          </label>
+        </div>
+        <div class="panel-body" id="mente"></div>
+      </section>
+    </aside>
+
+    <section class="col col-center" aria-label="Mesa">
+      <div class="mesa">
+        <div class="pano" id="pano">
+          <div class="vacio-mesa">Preparando la mesa…</div>
+        </div>
+      </div>
+      <div class="controles panel" id="controles"></div>
+      <div class="tabs" role="tablist" aria-label="Paneles">
+        <button type="button" role="tab" data-tab="senas" aria-selected="true">Señas</button>
+        <button type="button" role="tab" data-tab="mente" aria-selected="false">Mente</button>
+        <button type="button" role="tab" data-tab="marcador" aria-selected="false">Marcador</button>
+        <button type="button" role="tab" data-tab="bitacora" aria-selected="false">Bitácora</button>
+      </div>
+      <section class="panel bitacora" data-pane="bitacora" aria-labelledby="bitacora-titulo">
+        <div class="panel-head">
+          <h2 id="bitacora-titulo">Bitácora</h2>
+          <span class="hint" id="bitacora-hint"></span>
+        </div>
+        <ol class="log" id="log" aria-live="polite" aria-relevant="additions"></ol>
+      </section>
+    </section>
+
+    <aside class="col col-side col-right" aria-label="Señas">
+      <section class="panel senas" data-pane="senas" aria-labelledby="senas-titulo">
+        <div class="panel-head">
+          <h2 id="senas-titulo">Señas</h2>
+          <span class="hint" id="senas-hint">de esta mano</span>
+        </div>
+        <div class="panel-body" id="senas"></div>
+      </section>
+    </aside>
+  </main>
+
+  <dialog class="setup" id="setup" aria-labelledby="setup-titulo">
+    <form method="dialog" id="setup-form">
+      <div class="setup-hero">
+        <div class="hero-cards" id="hero-cards"></div>
+        <h2 id="setup-titulo">Nueva partida</h2>
+        <p>Antes de cada mano, cada jugador le hace una seña a su compañero. Los agentes PPO aprendieron solos qué significa cada gesto.</p>
+      </div>
+      <div class="setup-body">
+        <div class="setup-modes">
+          <div class="segmented" role="group" aria-label="Modo">
+            <button type="button" data-mode="play" aria-pressed="true">Jugar</button>
+            <button type="button" data-mode="watch" aria-pressed="false">Mirar</button>
+          </div>
+          <span class="mode-help" id="mode-help"></span>
+        </div>
+        <div class="setup-grid" id="setup-grid"></div>
+        <div class="setup-options" id="setup-options"></div>
+        <div class="setup-error" id="setup-error" hidden></div>
+        <div class="setup-foot">
+          <span class="note" id="setup-note"></span>
+          <div>
+            <button type="button" class="btn btn-ghost" id="setup-cancelar">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="setup-ok" autofocus>Repartir</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast-root" id="toasts" aria-live="assertive"></div>
+</body>
+</html>
