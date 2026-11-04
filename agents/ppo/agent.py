@@ -23,7 +23,7 @@ class PPOAgent(Agent):
         self.generator = torch.Generator().manual_seed(self.rng.randrange(2**31))
 
     @classmethod
-    def from_checkpoint(cls, path: str, **kwargs) -> "PPOAgent":
+    def from_checkpoint(cls, path: str, **kwargs) -> PPOAgent:
         net, _, _ = load_checkpoint(path)
         return cls(net, **kwargs)
 

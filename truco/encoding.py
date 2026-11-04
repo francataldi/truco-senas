@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -38,7 +38,7 @@ class Layout:
     size: int
 
 
-@lru_cache(maxsize=None)
+@cache
 def layout(n: int, k: int, signals: bool) -> Layout:
     sizes = [
         ("slots", 3 * N_CARDS),
