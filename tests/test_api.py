@@ -276,3 +276,19 @@ def test_frontend_is_served(client):
     for path in ("/js/main.js", "/js/cards.js", "/css/theme.css", "/favicon.svg"):
         assert client.get(path).status_code == 200, path
     assert client.get("/api/health").json()["ok"] is True
+
+
+def test_defaults_prefer_the_canonical_runs(tmp_path):
+    from demo.catalog import Catalog
+
+    torch.manual_seed(0)
+    for name, rules in (("a_sin", MUTE), ("parejas_sin_senas", MUTE), ("b_con", SIGNALS), ("parejas_senas", SIGNALS)):
+        folder = tmp_path / "runs" / name
+        folder.mkdir(parents=True)
+        save_checkpoint(folder / "last.pt", build_net(rules, NetConfig(hidden=8, depth=1)), rules)
+    defaults = Catalog([tmp_path / "runs"], base=tmp_path).default_specs()
+    assert defaults["partner"] == "ppo:runs/parejas_senas/last.pt"
+    assert defaults["team_b"] == "ppo:runs/parejas_sin_senas/last.pt"
+    assert defaults["rivals"] == "heuristic"
+    empty = Catalog([tmp_path / "nada"], base=tmp_path).default_specs()
+    assert empty == {"partner": "heuristic", "rivals": "heuristic", "team_a": "heuristic", "team_b": "heuristic"}
