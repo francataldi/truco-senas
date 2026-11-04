@@ -109,3 +109,30 @@ def test_signal_analysis_detects_classic_convention():
     assert summary["mi_carta_mas_alta_bits"] > 0.8
     tokens = np.array([0, 0, 1, 1])
     assert abs(mutual_information(tokens, np.array([0, 0, 1, 1])) - 1.0) < 1e-9
+
+
+def test_ppo_evaluate_exposes_policy_value_and_beliefs():
+    net = build_net(PAREJAS, NetConfig(hidden=32, depth=1))
+    agent = PPOAgent(net, seed=0, rules=PAREJAS)
+    rng = random.Random(4)
+    hand = TrucoHand(PAREJAS, rng=rng)
+    while not hand.done:
+        seat = hand.current_player
+        probs, value, beliefs = agent.evaluate(hand, seat)
+        legal = hand.legal_actions()
+        assert abs(probs[legal].sum() - 1.0) < 1e-5
+        assert np.isfinite(value)
+        assert beliefs.shape == (8,) and ((beliefs >= 0) & (beliefs <= 1)).all()
+        hand.step(agent.act(hand, seat))
+
+
+def test_ppo_without_signals_plays_at_signal_table():
+    mute_rules = Rules(num_players=4, signals=False)
+    net = build_net(mute_rules, NetConfig(hidden=32, depth=1))
+    agent = PPOAgent(net, seed=0, rules=mute_rules)
+    hand = TrucoHand(PAREJAS, rng=random.Random(2))
+    assert agent.is_mute(hand)
+    assert agent.act(hand, hand.current_player) == A.signal_action(0)
+    assert encode(hand, 0, signals=False).shape == (obs_size(mute_rules),)
+    stats = head_to_head(PAREJAS, [agent], [HeuristicAgent(seed=1)], 3, seed=0)
+    assert stats.matches == 3
