@@ -12,18 +12,10 @@ from truco.rules import Rules
 
 from .ablations import token_marginal
 from .arena import SignalNoise, head_to_head
+from .base import limit_threads
 from .league import pair_seed
 from .registry import make_agent
 from .stats import difference_summary, proportion_summary
-
-
-def _set_threads() -> None:
-    try:
-        import torch
-
-        torch.set_num_threads(1)
-    except ImportError:
-        pass
 
 
 def first_signal_distribution(agent, rules: Rules, hands: int, seed: int = 0, zero_score_prob: float = 0.3) -> np.ndarray:
@@ -85,11 +77,11 @@ def dictionary_alignment(p: np.ndarray, q: np.ndarray) -> dict:
 
 
 def _team_task(task: dict) -> dict:
-    _set_threads()
     rules = Rules(**task["rules"])
     first = make_agent(task["a"], seed=task["seed"])
     second = make_agent(task["b"], seed=task["seed"] + 1)
     opponent = make_agent(task["opponent"], seed=task["seed"] + 2)
+    limit_threads()
     noise = None
     if task["scrambled"]:
         marginal = token_marginal(make_agent(task["a"], seed=task["seed"] + 3), rules, task["marginal_hands"], seed=task["seed"] + 4)
@@ -213,8 +205,9 @@ def run_crossplay(
             gap["ci95"] = [round(interval[0], 4), round(interval[1], 4)]
         summary["fraccion_del_valor_de_las_señas_perdida"] = gap
     if rules.signals and signal_hands > 0 and k > 1:
-        _set_threads()
-        dists = [first_signal_distribution(make_agent(s, seed=seed), rules, signal_hands, seed=seed + 99) for s in specs]
+        agents = [make_agent(s, seed=seed) for s in specs]
+        limit_threads()
+        dists = [first_signal_distribution(agent, rules, signal_hands, seed=seed + 99) for agent in agents]
         pairs = []
         for i in range(k):
             for j in range(i + 1, k):

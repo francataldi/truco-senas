@@ -10,6 +10,7 @@ import numpy as np
 from truco.rules import Rules
 
 from .arena import head_to_head
+from .base import limit_threads
 from .ratings import ELO_PER_LOGIT, expected_win_matrix, fit_bradley_terry, rating_table
 from .registry import make_agent, spec_label, spec_rules
 
@@ -65,20 +66,12 @@ def compatible(spec: str, rules: Rules) -> tuple[bool, str]:
     return True, ""
 
 
-def _set_threads() -> None:
-    try:
-        import torch
-
-        torch.set_num_threads(1)
-    except ImportError:
-        pass
-
 
 def _play_pair(task: dict) -> dict:
-    _set_threads()
     rules = Rules(**task["rules"])
     a = make_agent(task["spec_a"], seed=task["seed"])
     b = make_agent(task["spec_b"], seed=task["seed"] + 1)
+    limit_threads()
     stats = head_to_head(rules, [a], [b], task["matches"], seed=task["seed"])
     return {"i": task["i"], "j": task["j"], "wins": stats.wins_a, **stats.to_dict()}
 

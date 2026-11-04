@@ -9,6 +9,7 @@ import numpy as np
 
 from truco.features import FEATURE_NAMES
 
+from .base import limit_threads
 from .plots import plot_curves, plot_grouped_bars, plot_infoset_curve, plot_intervals, plot_matrix, series_color
 from .stats import wilson_interval
 
@@ -196,6 +197,7 @@ def signal_summary(run: Path, hands: int, seed: int, bootstrap: int) -> dict | N
         from .signal_analysis import collect_signals, summarize
 
         agent = PPOAgent.from_checkpoint(str(checkpoint), seed=seed)
+        limit_threads()
         if agent.rules is None or not agent.rules.signals:
             return None
         data = collect_signals(agent.rules, [agent] * agent.rules.num_players, hands, seed=seed)
