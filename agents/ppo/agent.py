@@ -40,6 +40,9 @@ class PPOAgent(Agent):
     def _signals(self, hand: TrucoHand) -> bool:
         return hand.rules.signals if self.rules is None else self.rules.signals
 
+    def is_mute(self, hand: TrucoHand) -> bool:
+        return hand.signal_phase and not self._signals(hand)
+
     def compatible(self, rules: Rules) -> bool:
         if self.rules is not None and self.rules.num_players != rules.num_players:
             return False
@@ -51,6 +54,13 @@ class PPOAgent(Agent):
     def observe(self, hand: TrucoHand, seat: int) -> tuple[np.ndarray, np.ndarray]:
         return encode(hand, seat, signals=self._signals(hand)), action_mask(hand, self.net.n_actions)
 
+    def evaluate(self, hand: TrucoHand, seat: int) -> tuple[np.ndarray, float, np.ndarray]:
+        obs, mask = self.observe(hand, seat)
+        with torch.no_grad():
+            logits, value, aux = self.net(torch.from_numpy(obs[None]), torch.from_numpy(mask[None]))
+            probs = torch.softmax(logits / self.temperature, dim=-1)[0]
+        return probs.numpy(), float(value[0]), torch.sigmoid(aux[0]).numpy()
+
     def probabilities(self, hand: TrucoHand, seat: int) -> np.ndarray:
         obs, mask = self.observe(hand, seat)
         return self.probabilities_batch(obs[None], mask[None])[0]
@@ -61,10 +71,12 @@ class PPOAgent(Agent):
             probs = torch.softmax(logits / self.temperature, dim=-1)
         return probs.numpy()
 
-    def act(self, hand: TrucoHand, seat: int) -> int:
-        if hand.signal_phase and not self._signals(hand):
-            return A.signal_action(0)
-        probs = self.probabilities(hand, seat)
+    def sample(self, probs: np.ndarray) -> int:
         if self.greedy:
             return int(np.argmax(probs))
         return int(torch.multinomial(torch.from_numpy(probs), 1, generator=self.generator).item())
+
+    def act(self, hand: TrucoHand, seat: int) -> int:
+        if self.is_mute(hand):
+            return A.signal_action(0)
+        return self.sample(self.probabilities(hand, seat))
