@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from dataclasses import dataclass, field
@@ -14,7 +15,8 @@ BUILTIN = {
     "heuristic-mudo": ("heuristic", "Heurístico mudo", "Las mismas reglas, pero sin hacer señas."),
     "random": ("random", "Aleatorio", "Elige al azar entre las acciones legales."),
 }
-PATH_KINDS = ("ppo", "ppo-greedy", "cfr", "cfr-greedy")
+PATH_KINDS = ("ppo", "ppo-greedy")
+HEADS_UP_KINDS = ("cfr", "cfr-greedy")
 DEFAULT_REWARD_SCALE = 4.0
 
 
@@ -91,7 +93,6 @@ class Catalog:
         self.roots = [self._absolute(Path(r)) for r in roots]
         self.allowed = {self._absolute(Path(p)) for p in (allowed or [])}
         self._nets: dict[Path, tuple] = {}
-        self._tables: dict[Path, dict] = {}
         self._infos: dict[str, AgentInfo] = {}
         self._lock = threading.Lock()
 
@@ -116,20 +117,18 @@ class Catalog:
         for root in self.roots:
             if root.is_dir():
                 paths += sorted(root.rglob("last.pt"))
-                paths += sorted(root.rglob("*.pkl.gz"))
         for path in paths:
-            kinds = ("ppo", "ppo-greedy") if path.suffix == ".pt" else ("cfr",)
-            for kind in kinds:
+            if path.suffix != ".pt":
+                continue
+            for kind in PATH_KINDS:
                 spec = f"{kind}:{self.display(path)}"
                 if spec in seen:
                     continue
                 seen.add(spec)
-                try:
+                with contextlib.suppress(SpecError):
                     found.append(self.resolve(spec))
-                except SpecError:
-                    pass
         found += [self.resolve(spec) for spec in BUILTIN]
-        order = {"ppo": 0, "heuristic": 1, "random": 2, "cfr": 3}
+        order = {"ppo": 0, "heuristic": 1, "random": 2}
         return sorted(found, key=lambda info: order.get(info.family, 9))
 
     def resolve(self, spec: str) -> AgentInfo:
@@ -150,6 +149,8 @@ class Catalog:
             family, label, description = BUILTIN[spec]
             return AgentInfo(spec, spec, family, label, description)
         kind, sep, raw = spec.partition(":")
+        if kind in HEADS_UP_KINDS:
+            raise SpecError(f"{spec!r} es una estrategia MCCFR de 1 contra 1 y esta mesa es de parejas")
         if kind not in PATH_KINDS or not sep or not raw:
             raise SpecError(f"agente desconocido: {spec!r}")
         path = self._absolute(Path(raw))
@@ -157,10 +158,7 @@ class Catalog:
             raise SpecError(f"no existe el archivo {raw!r}")
         if not self._permitted(path):
             raise SpecError(f"{raw!r} está fuera de las carpetas permitidas")
-        canonical = f"{kind}:{self.display(path)}"
-        if kind.startswith("ppo"):
-            return self._ppo_info(canonical, kind, path)
-        return self._cfr_info(canonical, kind, path)
+        return self._ppo_info(f"{kind}:{self.display(path)}", kind, path)
 
     def _ppo_info(self, spec: str, kind: str, path: Path) -> AgentInfo:
         net, rules, extra = self.load_net(path)
@@ -191,12 +189,6 @@ class Catalog:
         label = f"PPO{' greedy' if kind == 'ppo-greedy' else ''} · {run}"
         return AgentInfo(spec, kind, "ppo", label, " · ".join(parts) + ".", path, details)
 
-    def _cfr_info(self, spec: str, kind: str, path: Path) -> AgentInfo:
-        name = path.name.removesuffix(".pkl.gz")
-        label = f"MCCFR{' greedy' if kind == 'cfr-greedy' else ''} · {name}"
-        description = "Estrategia de 1 contra 1; en parejas completa con el heurístico cuando no conoce la situación."
-        return AgentInfo(spec, kind, "cfr", label, description, path, {"run": name})
-
     def load_net(self, path: Path) -> tuple:
         from agents.ppo.net import load_checkpoint
 
@@ -211,20 +203,6 @@ class Catalog:
                 self._nets[path] = cached
         return cached
 
-    def load_table(self, path: Path) -> dict:
-        from agents.cfr import load_table
-
-        with self._lock:
-            cached = self._tables.get(path)
-        if cached is None:
-            try:
-                _, cached = load_table(path)
-            except Exception as exc:
-                raise SpecError(f"no se pudo cargar {path.name}: {exc}") from exc
-            with self._lock:
-                self._tables[path] = cached
-        return cached
-
     def make(self, info: AgentInfo, seed: int | None = None) -> Agent:
         if info.kind == "heuristic":
             return HeuristicAgent(seed=seed)
@@ -237,10 +215,6 @@ class Catalog:
 
             net, rules, _ = self.load_net(info.path)
             return PPOAgent(net, greedy=info.greedy, seed=seed, rules=rules)
-        if info.family == "cfr":
-            from agents.cfr import CFRAgent
-
-            return CFRAgent(self.load_table(info.path), seed=seed, greedy=info.greedy)
         raise SpecError(f"{info.spec!r} no es un agente")
 
     def reward_scale(self, info: AgentInfo) -> float:

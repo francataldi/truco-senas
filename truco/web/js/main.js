@@ -88,7 +88,6 @@ function optionsMarkup(selected) {
   const groups = [
     ['Redes PPO', app.agents.filter((a) => a.family === 'ppo')],
     ['Con reglas', app.agents.filter((a) => a.family === 'heuristic' || a.family === 'random')],
-    ['MCCFR, pensado para 1 contra 1', app.agents.filter((a) => a.family === 'cfr')],
   ];
   return groups
     .filter(([, list]) => list.length)

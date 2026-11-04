@@ -236,6 +236,9 @@ def test_invalid_games_are_rejected(client, specs, runs, tmp_path):
     for body in cases:
         response = client.post("/api/games", json=body)
         assert response.status_code == 422, body
+    response = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic", "cfr:runs/cfr/heads_up.npz", "heuristic"]})
+    assert response.status_code == 422
+    assert "1 contra 1" in response.json()["detail"]
 
 
 def test_dictionaries_from_file_computed_and_mute(client, specs):

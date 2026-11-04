@@ -347,7 +347,7 @@ export class MindPanel {
     }
     if (thought.options && thought.kind !== 'rules') {
       const options = thought.options.slice(0, 8);
-      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'table' ? 'Estrategia MCCFR' : thought.kind === 'mute' ? 'Seña fija' : 'Política';
+      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : 'Política';
       const chosenLabel = advice ? 'sugerida' : 'elegida';
       const rest = thought.options.length - options.length;
       const rows = options.map((o) => {
