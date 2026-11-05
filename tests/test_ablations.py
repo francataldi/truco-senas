@@ -132,6 +132,15 @@ def test_run_ablations_with_heuristics():
     assert summary["condiciones"]["seña_constante"]["seña"] == int(np.argmax(summary["marginal_a"]))
     for value in summary["valores"].values():
         assert value["ci95"][0] <= value["diff"] <= value["ci95"][1]
+    assert summary["referencia_valores"] == "simetria_0.5"
+    constant = summary["condiciones"]["seña_constante"]
+    assert summary["valores"]["valor_neto_de_señalar"]["diff"] == round(0.5 - constant["win_rate"], 4)
+    assert summary["control_simetria"] is not None
+    against = run_ablations(PAREJAS, "heuristic", "heuristic-mudo", matches=4, marginal_hands=50, conditions=("normal", "seña_constante"))
+    assert against["referencia_valores"] == "normal_medido"
+    assert against["control_simetria"] is None
+    assert set(against["valores"]) == {"valor_neto_de_señalar"}
+    assert against["marginal_b"][0] == 1.0
     with pytest.raises(ValueError):
         run_ablations(Rules(num_players=4, signals=False), "heuristic", "random", matches=2)
 

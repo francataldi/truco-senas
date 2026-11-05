@@ -11,7 +11,7 @@ from .arena import SignalNoise, head_to_head
 from .base import Agent, limit_threads
 from .registry import make_agent
 from .signal_analysis import collect_signals
-from .stats import difference_summary
+from .stats import difference_summary, wilson_interval
 
 CONDITIONS = (
     "normal",
@@ -139,10 +139,18 @@ def run_ablations(
         if r["constant_token"] is not None:
             entry["seña"] = r["constant_token"]
         summary["condiciones"][condition] = entry
+    mirror = spec_b == spec_a
+    summary["referencia_valores"] = "simetria_0.5" if mirror else "normal_medido"
     if "normal" in by_condition:
-        base = by_condition["normal"]
-        for name, condition in VALUES.items():
-            if condition in by_condition:
-                r = by_condition[condition]
-                summary["valores"][name] = difference_summary(base["wins"], matches, r["wins"], matches)
+        normal = by_condition["normal"]
+        summary["control_simetria"] = difference_summary(normal["wins"], matches, matches / 2, matches) if mirror else None
+    for name, condition in VALUES.items():
+        if condition not in by_condition:
+            continue
+        r = by_condition[condition]
+        if mirror:
+            lo, hi = wilson_interval(r["wins"], matches)
+            summary["valores"][name] = {"diff": round(0.5 - r["wins"] / matches, 4), "ci95": [round(0.5 - hi, 4), round(0.5 - lo, 4)]}
+        elif "normal" in by_condition:
+            summary["valores"][name] = difference_summary(by_condition["normal"]["wins"], matches, r["wins"], matches)
     return summary
