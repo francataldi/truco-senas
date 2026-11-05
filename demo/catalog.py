@@ -11,14 +11,19 @@ from agents.heuristic import HeuristicAgent
 
 HUMAN = "human"
 BUILTIN = {
-    "heuristic": ("heuristic", "Heurístico", "Reglas fijas y las señas clásicas del truco."),
-    "heuristic-mudo": ("heuristic", "Heurístico mudo", "Las mismas reglas, pero sin hacer señas."),
-    "random": ("random", "Aleatorio", "Elige al azar entre las acciones legales."),
+    "heuristic": ("heuristic", "Jugador clásico", "Un jugador programado a mano: reglas fijas y las señas de siempre del truco."),
+    "heuristic-mudo": ("heuristic", "Jugador clásico sin señas", "El mismo jugador programado a mano, pero sin hacer señas."),
+    "random": ("random", "Jugador al azar", "Elige cualquier jugada válida al azar."),
 }
 PATH_KINDS = ("ppo", "ppo-greedy")
 POLICY_SUFFIXES = (".pt", ".npz")
 HEADS_UP_KINDS = ("cfr", "cfr-greedy")
 DEFAULT_REWARD_SCALE = 4.0
+RUN_NAMES = {
+    "parejas_senas": "IA con señas",
+    "parejas_sin_senas": "IA sin señas",
+    "parejas_espias": "IA entrenada con espías",
+}
 
 
 class SpecError(ValueError):
@@ -180,16 +185,20 @@ class Catalog:
         evaluation = _last_eval(path.parent)
         if evaluation and "vs_heuristic" in evaluation:
             details["win_vs_heuristic"] = evaluation["vs_heuristic"].get("win_rate")
-        parts = [f"Red {net.cfg.depth}×{net.cfg.hidden}"]
-        if details["iteration"]:
-            parts.append(f"{details['iteration']} iteraciones")
+        parts = ["Una red neuronal que aprendió sola, jugando millones de manos contra sí misma"]
         if details.get("win_vs_heuristic") is not None:
-            parts.append(f"gana {round(100 * details['win_vs_heuristic'])}% al heurístico")
-        parts.append("con señas" if rules.signals else "entrenada sin señas")
+            parts.append(f"le gana al jugador clásico el {round(100 * details['win_vs_heuristic'])}% de las partidas")
+        if not rules.signals:
+            parts.append("aprendió sin poder hacer señas")
+        elif rules.spy_prob >= 0.5:
+            parts.append("aprendió sabiendo que los rivales espían la mitad de las señas")
+        else:
+            parts.append("inventó su propio idioma de señas")
         if kind == "ppo-greedy":
-            parts.append("elige siempre la acción más probable")
-        label = f"PPO{' greedy' if kind == 'ppo-greedy' else ''} · {run}"
-        return AgentInfo(spec, kind, "ppo", label, " · ".join(parts) + ".", path, details)
+            parts.append("siempre elige la jugada que cree mejor")
+        name = RUN_NAMES.get(path.parent.name if path.stem == "last" else "", f"IA · {run}")
+        label = f"{name}{' · sin dudar' if kind == 'ppo-greedy' else ''}"
+        return AgentInfo(spec, kind, "ppo", label, ". ".join(p[0].upper() + p[1:] for p in parts) + ".", path, details)
 
     def load_net(self, path: Path) -> tuple:
         with self._lock:

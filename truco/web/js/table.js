@@ -45,7 +45,7 @@ export class Table {
       tools.push('<span class="felt-chip" title="Ves las cartas y la mente de los rivales">Cartas abiertas</span>');
     }
     if (game.signals) {
-      tools.push(`<span class="felt-chip" title="Probabilidad de que un rival vea una seña">Pescar seña: ${Math.round(game.spy_prob * 100)}%</span>`);
+      tools.push(`<span class="felt-chip" title="Chance de que el rival vea cada seña">Rival ve las señas: ${Math.round(game.spy_prob * 100)}%</span>`);
     }
     this.root.innerHTML = `
       <div class="pano-info">
