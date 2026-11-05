@@ -32,6 +32,26 @@ Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos 
 2. Si lo inventan, ¿qué significa cada seña?
 3. ¿Qué pasa con ese idioma cuando los rivales pueden espiar?
 
+<details>
+<summary><b>Glosario para no especialistas</b></summary>
+
+| Término | Qué quiere decir |
+|---|---|
+| **Agente** o **IA** | Un jugador manejado por una red neuronal. |
+| **Heurístico** o **jugador clásico** | Un jugador programado a mano, con reglas fijas y las señas de siempre del truco. Sirve de vara para medir a las IA. |
+| **PPO** | El método de aprendizaje por refuerzo con el que se entrenaron: la red juega, ve si ganó o perdió y ajusta sus decisiones de a poco. |
+| **Self-play** | Aprender jugando contra copias de sí misma, sin datos de partidas humanas. |
+| **Iteración** | Una ronda de entrenamiento: unas 5.000 manos jugadas y una actualización de la red. |
+| **Semilla** | El número que fija el azar de un entrenamiento. Dos semillas distintas son como dos parejas que aprendieron por separado. |
+| **Cross-play** | Juntar como compañeros a dos IA que se entrenaron por separado, para ver si se entienden. |
+| **Ablación** | Romper a propósito una pieza, como mezclar las señas, para medir cuánto aportaba. |
+| **Bits** | Cuánta información lleva una seña. 0 bits es no decir nada y cada bit extra es como contestar una pregunta de sí o no. |
+| **Elo** | El mismo puntaje que se usa en ajedrez: 200 puntos de diferencia es ganar aproximadamente 3 de cada 4 partidas. |
+| **Intervalo de confianza (IC 95%)** | El rango donde está el valor real con un 95% de seguridad, por haber jugado una cantidad finita de partidas. |
+| **MCCFR** | Un algoritmo de teoría de juegos que busca la estrategia más difícil de explotar. Es el usado en los bots de póker. |
+
+</details>
+
 ## Qué descubrieron
 
 ### 1. Reinventaron las señas del truco
@@ -97,7 +117,7 @@ Para el truco mano a mano hay un **MCCFR** tabular con CFR lineal y abstracción
 
 1. Entrá a **[francataldi.github.io/truco-senas](https://francataldi.github.io/truco-senas/)** y esperá unos segundos a que cargue Python.
 2. **Jugar:** te sentás con un compañero PPO contra dos rivales heurísticos. Antes de cada mano elegís una seña: la demo te dice qué va a entender tu compañero con cada gesto.
-3. **Mente del agente:** mirá las probabilidades de cada jugada, cuántos puntos espera ganar y qué cree que tenés en la mano.
+3. **Qué piensa la IA:** mirá qué tan segura está de cada jugada, cuántos puntos espera sacar y qué cree que tiene su compañero en la mano.
 4. **Mirar:** dos parejas de agentes juegan solas, la que tiene señas contra la que no. Podés espiar las señas y ajustar la velocidad.
 
 <details>
