@@ -161,7 +161,7 @@ export class SignalsPanel {
         } else if (viewer != null && s % 2 !== viewer % 2 && this.spied.has(s)) {
           badge = '<span class="badge oro" title="Le viste la seña al rival">¡pescada!</span>';
         } else if (entry && entry.confidence != null) {
-          badge = `<span class="badge azul" title="Probabilidad de que la seña diga la verdad según el diccionario">${pct(entry.confidence)}</span>`;
+          badge = `<span class="badge azul" title="Cuántas veces es cierto lo que anuncia esta seña">${pct(entry.confidence)}</span>`;
         }
         if (viewer != null && s === viewer) who = `<b>Vos</b> · ${esc(GESTURES[token] || '')}`;
       }
@@ -195,10 +195,9 @@ export class SignalsPanel {
       : '';
     const lang = current.language;
     let meta = '';
-    if (lang.source === 'archivo') meta = `Aprendido por la red · diccionario.json con ${lang.hands.toLocaleString('es-AR')} señas`;
-    else if (lang.source === 'calculado') meta = `Calculado al arrancar sobre ${lang.hands.toLocaleString('es-AR')} señas`;
-    else meta = 'Este agente no usa señas: siempre hace el mismo gesto';
-    if (lang.mi_bits != null && lang.source !== 'mudo') meta += ` · informa ${String(lang.mi_bits.toFixed(2)).replace('.', ',')} bits sobre su mejor carta`;
+    if (lang.source === 'archivo') meta = `Nadie le enseñó qué significa cada gesto: lo descubrimos mirando ${lang.hands.toLocaleString('es-AR')} señas que hizo`;
+    else if (lang.source === 'calculado') meta = `Lo que significa cada gesto, mirando ${lang.hands.toLocaleString('es-AR')} señas que hizo`;
+    else meta = 'Este jugador no usa señas: siempre hace el mismo gesto';
     const items = lang.tokens.map((t) => {
       const unused = t.frequency === 0;
       const dim = t.confidence == null;
@@ -299,11 +298,11 @@ export class MindPanel {
 
   render() {
     if (!this.game) {
-      this.root.innerHTML = this.empty('Empezá una partida para ver cómo decide cada agente.');
+      this.root.innerHTML = this.empty('Empezá una partida para ver cómo piensa la IA.');
       return;
     }
     if (!this.enabled) {
-      this.root.innerHTML = this.empty('Activala para ver, en cada decisión, las probabilidades de la política, el valor estimado y lo que cree cada agente sobre su compañero.');
+      this.root.innerHTML = this.empty('Activala para ver, en cada jugada, qué tan segura está la IA de cada opción, cuántos puntos espera sacar y qué cree que tiene su compañero.');
       return;
     }
     const showingAdvice = this.advice && this.selected == null;
@@ -331,7 +330,7 @@ export class MindPanel {
   card(thought, advice) {
     const seat = this.game.seats[thought.seat];
     const name = advice ? 'Tu turno' : seat.role;
-    const sub = advice ? `Qué haría ${thought.agent} en tu lugar` : thought.agent;
+    const sub = advice ? `Si fuera vos · lo que haría ${thought.agent}` : thought.agent;
     const parts = [];
     parts.push(`<div class="mente-quien">${miniFace(thought.seat)}
       <div style="min-width:0"><div class="nombre"><span class="quien-nombre">${esc(name)}</span><span class="mente-contexto" title="${esc(thought.context)}">${esc(thought.context)}</span></div><div class="sub" title="${esc(sub)}">${esc(sub)}</div></div></div>`);
@@ -339,15 +338,15 @@ export class MindPanel {
       const v = thought.value;
       const pos = clamp(50 + (v / 4) * 50, 2, 98);
       const tone = v > 0.05 ? 'pos' : v < -0.05 ? 'neg' : '';
-      parts.push(`<div title="Diferencia de puntos que la cabeza de valor de la red espera al terminar la mano">
-        <div class="seccion-titulo">Valor estimado <span class="valor-num ${tone}">${signed(v, 1)} pts</span></div>
+      parts.push(`<div title="Cuántos puntos de ventaja cree que va a sacar su pareja al terminar la mano">
+        <div class="seccion-titulo">Puntos que espera sacar <span class="valor-num ${tone}">${signed(v, 1)} pts</span></div>
         <div class="gauge" aria-hidden="true"><div class="riel"></div><div class="cero"></div><div class="aguja" style="left:${pos}%"></div></div>
         <div class="gauge-escala"><span>−4</span><span>0</span><span>+4</span></div>
       </div>`);
     }
     if (thought.options && thought.kind !== 'rules') {
       const options = thought.options.slice(0, 8);
-      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : 'Política';
+      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : 'Qué jugaría';
       const chosenLabel = advice ? 'sugerida' : 'elegida';
       const rest = thought.options.length - options.length;
       const rows = options.map((o) => {
@@ -360,7 +359,7 @@ export class MindPanel {
         </li>`;
       });
       const more = rest > 0 ? ` · ${rest} más` : '';
-      parts.push(`<div><div class="seccion-titulo">${esc(title)} <span>${thought.options.length} legales${more}</span></div><ul class="probs">${rows.join('')}</ul></div>`);
+      parts.push(`<div><div class="seccion-titulo">${esc(title)} <span>${thought.options.length} posibles${more}</span></div><ul class="probs">${rows.join('')}</ul></div>`);
     } else if (thought.kind === 'rules') {
       const verb = advice ? 'En tu lugar haría' : 'Eligió';
       parts.push(`<div class="reglas-nota">Decide con reglas fijas, sin probabilidades. ${verb} <b>${esc(thought.chosen_label)}</b>.</div>`);
