@@ -1,0 +1,63 @@
+export class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export const LOCAL = document.documentElement.dataset.backend === 'local';
+
+async function localRequest(method, url, body) {
+  let out;
+  try {
+    const local = await import('./local.js');
+    out = await local.localRequest(method, url, body);
+  } catch (error) {
+    throw new ApiError(0, `No se pudo preparar el juego en el navegador: ${error.message}`);
+  }
+  if (out.status === 204) return null;
+  if (out.status >= 400) {
+    const detail = out.data && out.data.detail;
+    throw new ApiError(out.status, detail || `Error ${out.status}`);
+  }
+  return out.data;
+}
+
+async function request(method, url, body) {
+  if (LOCAL) return localRequest(method, url, body);
+  const options = { method, headers: { Accept: 'application/json' } };
+  if (body !== undefined) {
+    options.headers['Content-Type'] = 'application/json';
+    options.body = JSON.stringify(body);
+  }
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (error) {
+    throw new ApiError(0, 'No hay conexión con el servidor. ¿Sigue corriendo scripts/serve.py?');
+  }
+  if (response.status === 204) return null;
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = null;
+  }
+  if (!response.ok) {
+    let detail = data && data.detail;
+    if (Array.isArray(detail)) detail = detail.map((d) => d.msg).join('; ');
+    throw new ApiError(response.status, detail || `Error ${response.status}`);
+  }
+  return data;
+}
+
+export const api = {
+  agents: () => request('GET', '/api/agents'),
+  dictionary: (spec) => request('GET', `/api/dictionary?spec=${encodeURIComponent(spec)}`),
+  newGame: (body) => request('POST', '/api/games', body),
+  game: (id, since = 0) => request('GET', `/api/games/${id}?since=${since}`),
+  act: (id, action, seq) => request('POST', `/api/games/${id}/action`, { action, seq }),
+  advance: (id, steps, seq) => request('POST', `/api/games/${id}/advance`, { steps, seq }),
+  advice: (id) => request('GET', `/api/games/${id}/advice`),
+  remove: (id) => request('DELETE', `/api/games/${id}`),
+};
