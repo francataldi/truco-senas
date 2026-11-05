@@ -342,7 +342,7 @@ def plot_ablations(paths: list[Path], runs_dir: Path, out_dir: Path, figures: li
     fig, axes = plt.subplots(1, len(loaded), figsize=(4.6 * len(loaded) + 1.6, 0.9 + 0.42 * len(conditions)), squeeze=False, sharey=True)
     for ax, (name, summary) in zip(axes[0], loaded):
         y = np.arange(len(conditions))[::-1]
-        normal = summary["condiciones"].get("normal", {}).get("win_rate")
+        normal = 0.5 if summary.get("referencia_valores") == "simetria_0.5" else summary["condiciones"].get("normal", {}).get("win_rate")
         if normal is not None:
             ax.axvline(normal, color=MUTED, linewidth=0.8)
         for k, condition in enumerate(conditions):

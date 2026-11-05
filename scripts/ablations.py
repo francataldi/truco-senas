@@ -79,7 +79,7 @@ def main() -> None:
         out / "ablaciones.png",
         f"Ablaciones de señas · {summary['run']} contra {'sí mismo' if spec_b == spec_a else spec_b}",
         "tasa de victoria con IC 95% de Wilson",
-        reference=summary["condiciones"].get("normal", {}).get("win_rate"),
+        reference=0.5 if summary["referencia_valores"] == "simetria_0.5" else summary["condiciones"].get("normal", {}).get("win_rate"),
         highlight=[c == "normal" for c in conditions],
     )
     brief = {"condiciones": {c: (e["win_rate"], e["ci95"]) for c, e in summary["condiciones"].items()}, "valores": summary["valores"]}
