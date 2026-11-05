@@ -16,6 +16,7 @@ BUILTIN = {
     "random": ("random", "Aleatorio", "Elige al azar entre las acciones legales."),
 }
 PATH_KINDS = ("ppo", "ppo-greedy")
+POLICY_SUFFIXES = (".pt", ".npz")
 HEADS_UP_KINDS = ("cfr", "cfr-greedy")
 DEFAULT_REWARD_SCALE = 4.0
 
@@ -116,9 +117,10 @@ class Catalog:
         paths: list[Path] = sorted(self.allowed)
         for root in self.roots:
             if root.is_dir():
-                paths += sorted(root.rglob("last.pt"))
+                for suffix in POLICY_SUFFIXES:
+                    paths += sorted(root.rglob(f"last{suffix}"))
         for path in paths:
-            if path.suffix != ".pt":
+            if path.suffix not in POLICY_SUFFIXES:
                 continue
             for kind in PATH_KINDS:
                 spec = f"{kind}:{self.display(path)}"
@@ -164,7 +166,7 @@ class Catalog:
         net, rules, extra = self.load_net(path)
         if rules.num_players != 4:
             raise SpecError(f"{path.name} es un checkpoint de {rules.num_players} jugadores y la mesa es de 4")
-        run = path.parent.name if path.name == "last.pt" else f"{path.parent.name}/{path.stem}"
+        run = path.parent.name if path.stem == "last" else f"{path.parent.name}/{path.stem}"
         details = {
             "run": run,
             "iteration": extra.get("iteration"),
@@ -190,13 +192,18 @@ class Catalog:
         return AgentInfo(spec, kind, "ppo", label, " · ".join(parts) + ".", path, details)
 
     def load_net(self, path: Path) -> tuple:
-        from agents.ppo.net import load_checkpoint
-
         with self._lock:
             cached = self._nets.get(path)
         if cached is None:
             try:
-                cached = load_checkpoint(str(path))
+                if path.suffix == ".npz":
+                    from agents.ppo.numpy_net import load_numpy_policy
+
+                    cached = load_numpy_policy(path)
+                else:
+                    from agents.ppo.net import load_checkpoint
+
+                    cached = load_checkpoint(str(path))
             except Exception as exc:
                 raise SpecError(f"no se pudo cargar {path.name}: {exc}") from exc
             with self._lock:
@@ -211,9 +218,13 @@ class Catalog:
         if info.kind == "random":
             return RandomAgent(seed=seed)
         if info.family == "ppo":
+            net, rules, _ = self.load_net(info.path)
+            if info.path.suffix == ".npz":
+                from agents.ppo.numpy_net import NumpyPPOAgent
+
+                return NumpyPPOAgent(net, greedy=info.greedy, seed=seed, rules=rules)
             from agents.ppo.agent import PPOAgent
 
-            net, rules, _ = self.load_net(info.path)
             return PPOAgent(net, greedy=info.greedy, seed=seed, rules=rules)
         raise SpecError(f"{info.spec!r} no es un agente")
 
