@@ -5,7 +5,26 @@ export class ApiError extends Error {
   }
 }
 
+export const LOCAL = document.documentElement.dataset.backend === 'local';
+
+async function localRequest(method, url, body) {
+  let out;
+  try {
+    const local = await import('./local.js');
+    out = await local.localRequest(method, url, body);
+  } catch (error) {
+    throw new ApiError(0, `No se pudo preparar el juego en el navegador: ${error.message}`);
+  }
+  if (out.status === 204) return null;
+  if (out.status >= 400) {
+    const detail = out.data && out.data.detail;
+    throw new ApiError(out.status, detail || `Error ${out.status}`);
+  }
+  return out.data;
+}
+
 async function request(method, url, body) {
+  if (LOCAL) return localRequest(method, url, body);
   const options = { method, headers: { Accept: 'application/json' } };
   if (body !== undefined) {
     options.headers['Content-Type'] = 'application/json';
