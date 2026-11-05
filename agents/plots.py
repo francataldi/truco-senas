@@ -70,12 +70,6 @@ def diverging_cmap():
     return LinearSegmentedColormap.from_list("azul_rojo", [BLUE, NEUTRAL, RED])
 
 
-def sequential_cmap():
-    from matplotlib.colors import LinearSegmentedColormap
-
-    return LinearSegmentedColormap.from_list("azul", ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"])
-
-
 def _save(fig, path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

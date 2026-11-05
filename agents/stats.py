@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
-
 Z95 = 1.959963984540054
 
 
@@ -38,12 +36,3 @@ def difference_summary(k1: float, n1: int, k2: float, n2: int) -> dict:
     d = (k1 / n1 if n1 else 0.0) - (k2 / n2 if n2 else 0.0)
     return {"diff": round(d, 4), "ci95": [round(lo, 4), round(hi, 4)]}
 
-
-def bootstrap_mean_interval(values: np.ndarray, samples: int = 2000, seed: int = 0, level: float = 0.95) -> tuple[float, float]:
-    values = np.asarray(values, dtype=np.float64)
-    if len(values) == 0:
-        return (0.0, 0.0)
-    rng = np.random.default_rng(seed)
-    means = values[rng.integers(0, len(values), size=(samples, len(values)))].mean(1)
-    alpha = (1 - level) / 2
-    return (float(np.quantile(means, alpha)), float(np.quantile(means, 1 - alpha)))

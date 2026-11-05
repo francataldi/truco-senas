@@ -23,7 +23,6 @@ from .base import Agent
 from .heuristic import HeuristicAgent
 
 ABSTRACTION_VERSION = 2
-EMPTY = -1
 GOLDEN = 0x9E3779B97F4A7C15
 MASK64 = (1 << 64) - 1
 BYTES_PER_INFOSET_BOUND = 128
@@ -498,18 +497,6 @@ class TablePart:
     offsets: np.ndarray
     strategy: np.ndarray
 
-    def save(self, folder: str | Path) -> None:
-        folder = Path(folder)
-        folder.mkdir(parents=True, exist_ok=True)
-        for name in ("keys", "sizes", "offsets", "strategy"):
-            np.save(folder / f"{name}.npy", getattr(self, name))
-
-    @classmethod
-    def load(cls, folder: str | Path, mmap: bool = True) -> TablePart:
-        folder = Path(folder)
-        mode = "r" if mmap else None
-        return cls(**{name: np.load(folder / f"{name}.npy", mmap_mode=mode) for name in ("keys", "sizes", "offsets", "strategy")})
-
     def slice(self, lo: int, hi: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         keys = np.asarray(self.keys[lo:hi])
         sizes = np.asarray(self.sizes[lo:hi]).astype(np.int64)
@@ -932,14 +919,6 @@ def train_parallel(
     results.sort(key=lambda r: r["worker"])
     curve = [row for r in results for row in r["curve"]]
     return build_policy([part], rules, abstraction, meta), curve
-
-
-def save_table(policy: Policy, path: str | Path) -> None:
-    policy.save(path)
-
-
-def load_table(path: str | Path) -> Policy:
-    return Policy.load(path)
 
 
 class CFRAgent(Agent):
