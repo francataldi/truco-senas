@@ -6,7 +6,7 @@ import numpy as np
 
 from agents.base import Agent, RandomAgent
 from agents.heuristic import HeuristicAgent
-from agents.ppo.agent import PPOAgent
+from agents.ppo.policy import PolicyAgent
 from truco import actions as A
 from truco.engine import TrucoHand
 from truco.features import FEATURE_NAMES
@@ -26,7 +26,7 @@ class Thought:
 
 def decide(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -> Thought:
     legal = hand.legal_actions()
-    if isinstance(agent, PPOAgent):
+    if isinstance(agent, PolicyAgent):
         if agent.is_mute(hand):
             action = agent.act(hand, seat)
             return Thought("mute", action, {action: 1.0})
@@ -41,7 +41,7 @@ def decide(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -
 
 def advise(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -> Thought:
     legal = hand.legal_actions()
-    if isinstance(agent, PPOAgent) and not agent.is_mute(hand):
+    if isinstance(agent, PolicyAgent) and not agent.is_mute(hand):
         probs, value, beliefs = agent.evaluate(hand, seat)
         options = _over(legal, probs)
         best = max(options, key=options.get)
