@@ -73,7 +73,8 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(summary["celdas"])
     matrix = np.array([[np.nan if v is None else v for v in row] for row in summary["matriz"]])
-    plot_matrix(names, names, matrix, out / "crossplay_matriz.png", f"Pareja (fila, columna) contra {args.opponent}", colorbar="victorias de la pareja")
+    rival = spec_label(args.opponent)
+    plot_matrix(names, names, matrix, out / "crossplay_matriz.png", f"Pareja (fila, columna) contra {rival}", colorbar="victorias de la pareja")
     labels, values, lows, highs = [], [], [], []
     for key, label in (("self_play", "self-play"), ("cross_play", "cross-play"), ("self_play_mezclado", "self-play con señas mezcladas")):
         if key in summary["agregado"]:
@@ -88,7 +89,7 @@ def main() -> None:
         lows,
         highs,
         out / "crossplay.png",
-        f"Cross-play contra self-play (rival: {args.opponent})",
+        f"Cross-play contra self-play (rival: {rival})",
         "tasa de victoria con IC 95% de Wilson",
         reference=0.5,
     )

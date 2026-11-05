@@ -11,6 +11,7 @@ from truco.features import FEATURE_NAMES
 
 from .base import limit_threads
 from .plots import plot_curves, plot_grouped_bars, plot_infoset_curve, plot_intervals, plot_matrix, series_color
+from .registry import spec_label
 from .stats import wilson_interval
 
 ABLATION_LABELS = {
@@ -133,7 +134,7 @@ def plot_learning(runs: list[Path], runs_dir: Path, out_dir: Path, group: str, f
     for key, title, stem, ref in (
         ("vs_heuristic", "Victorias contra el heurístico", "curvas_heuristico", 0.5),
         ("vs_random", "Victorias contra random", "curvas_random", 0.5),
-        ("vs_self_scrambled", "Valor de las señas: contra sí mismo con las señas del rival mezcladas", "curvas_senas", 0.5),
+        ("vs_self_scrambled", "Valor de las señas: contra una copia con las señas entre compañeros mezcladas", "curvas_senas", 0.5),
     ):
         series = []
         for i, run in enumerate(runs):
@@ -253,6 +254,7 @@ def plot_leagues(paths: list[Path], runs_dir: Path, out_dir: Path, figures: list
         rows = summary["ratings"]
         anchor = summary.get("ancla")
         players = summary.get("rules", {}).get("num_players", "?")
+        suffix = "" if name in ("liga", "liga_1v1") else f" ({name})"
         figure = out_dir / f"liga_{name}.png"
         plot_intervals(
             [r["nombre"] for r in rows],
@@ -260,7 +262,7 @@ def plot_leagues(paths: list[Path], runs_dir: Path, out_dir: Path, figures: list
             [r["elo_lo"] for r in rows],
             [r["elo_hi"] for r in rows],
             figure,
-            f"Liga {players} jugadores ({name}): Elo Bradley-Terry, IC 95% bootstrap",
+            f"Liga de {players} jugadores{suffix}: Elo Bradley-Terry, IC 95% bootstrap",
             f"Elo relativo a {anchor}" if anchor else "Elo relativo a la media",
             reference=0.0,
             highlight=[r["nombre"] == anchor for r in rows],
@@ -276,7 +278,7 @@ def plot_leagues(paths: list[Path], runs_dir: Path, out_dir: Path, figures: list
             [names[i] for i in order],
             matrix,
             figure,
-            f"Liga {name}: victorias de la fila contra la columna",
+            f"Liga de {players} jugadores{suffix}: victorias de la fila contra la columna",
             colorbar="tasa de victoria",
         )
         figures.append({"archivo": figure.name, "titulo": f"Cruces de la liga {name}", "seccion": "Liga"})
@@ -292,7 +294,8 @@ def plot_crossplays(paths: list[Path], runs_dir: Path, out_dir: Path, figures: l
         names = summary["nombres"]
         matrix = [[np.nan if v is None else v for v in row] for row in summary["matriz"]]
         figure = out_dir / f"crossplay_matriz_{name}.png"
-        plot_matrix(names, names, matrix, figure, f"Parejas de semillas contra {summary['rival']}", colorbar="tasa de victoria")
+        rival = spec_label(summary["rival"])
+        plot_matrix(names, names, matrix, figure, f"Parejas de semillas contra {rival}", colorbar="tasa de victoria")
         figures.append({"archivo": figure.name, "titulo": f"Matriz de cross-play ({name})", "seccion": "Cross-play"})
         labels, values, lows, highs = [], [], [], []
         for key, label in (("self_play", "self-play"), ("cross_play", "cross-play"), ("self_play_mezclado", "self-play con señas mezcladas")):
@@ -310,7 +313,7 @@ def plot_crossplays(paths: list[Path], runs_dir: Path, out_dir: Path, figures: l
                 lows,
                 highs,
                 figure,
-                f"Cross-play contra self-play (rival: {summary['rival']})",
+                f"Cross-play contra self-play (rival: {rival})",
                 "tasa de victoria, IC 95% de Wilson",
                 reference=0.5,
             )
