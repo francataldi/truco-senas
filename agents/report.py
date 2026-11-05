@@ -430,6 +430,85 @@ def write_latex(out_dir: Path, report: dict) -> None:
     (out_dir / "tablas.tex").write_text("\n".join(lines), encoding="utf-8")
 
 
+MEASURE_LABELS = {
+    "vs_heuristic": "contra el heurístico",
+    "vs_random": "contra random",
+    "vs_self_scrambled": "contra una copia con señas mezcladas",
+}
+
+VALUE_LABELS = {
+    "valor_escuchar_compañero": "escuchar al compañero",
+    "valor_espiar_rivales": "espiar a los rivales",
+    "costo_rivales_mezclados": "señas espiadas falsas",
+    "valor_de_todas_las_señas": "todas las señas",
+    "valor_neto_de_señalar": "señalar (comunicar y filtrar)",
+}
+
+
+def _table(headers: list[str], rows: list[list[str]], numeric_from: int = 1) -> str:
+    out = ["<table><tr>" + "".join(f"<th>{html.escape(h)}</th>" for h in headers) + "</tr>"]
+    for row in rows:
+        cells = []
+        for i, cell in enumerate(row):
+            attribute = " class='n'" if i >= numeric_from else ""
+            cells.append(f"<td{attribute}>{html.escape(str(cell))}</td>")
+        out.append("<tr>" + "".join(cells) + "</tr>")
+    out.append("</table>")
+    return "".join(out)
+
+
+def _interval(entry: dict, key: str = "p") -> str:
+    return f"{entry[key]:.3f} [{entry['ci95'][0]:.3f}, {entry['ci95'][1]:.3f}]"
+
+
+def _summary_tables(report: dict) -> list[str]:
+    parts = []
+    finals = report.get("curvas_finales", [])
+    if finals:
+        parts.append("<h2>Última evaluación de cada corrida</h2>")
+        rows = [[r["run"], MEASURE_LABELS.get(r["medida"], r["medida"]), f"{r['tasa']:.3f}", f"[{r['ci95'][0]:.3f}, {r['ci95'][1]:.3f}]"] for r in finals]
+        parts.append(_table(["corrida", "medida", "tasa", "IC 95%"], rows, numeric_from=2))
+    for cp in report.get("crossplay", []):
+        parts.append(f"<h2>Cross-play ({html.escape(cp['crossplay'])})</h2>")
+        rows = [[key.replace("_", " "), _interval(entry)] for key, entry in cp["agregado"].items()]
+        rows += [
+            [key.replace("_", " "), f"{entry['diff']:+.3f} [{entry['ci95'][0]:+.3f}, {entry['ci95'][1]:+.3f}]"] for key, entry in cp["diferencias"].items()
+        ]
+        lost = cp.get("fraccion_perdida") or {}
+        if lost.get("valor") is not None:
+            interval = f" [{lost['ci95'][0]:.2f}, {lost['ci95'][1]:.2f}]" if "ci95" in lost else ""
+            rows.append(["fracción del valor de las señas perdida", f"{lost['valor']:.2f}{interval}"])
+        for key, value in (cp.get("diccionarios") or {}).items():
+            rows.append([f"diccionarios: {key.replace('_', ' ')}", f"{value:.3f}"])
+        parts.append(_table(["medida", "valor (IC 95%)"], rows))
+    ablations = report.get("ablaciones", [])
+    if ablations:
+        parts.append("<h2>Valor de cada componente de las señas</h2>")
+        rows = []
+        for ab in ablations:
+            for key, entry in ab["valores"].items():
+                rows.append([ab["run"], VALUE_LABELS.get(key, key), f"{entry['diff']:+.3f} [{entry['ci95'][0]:+.3f}, {entry['ci95'][1]:+.3f}]"])
+        parts.append(_table(["corrida", "componente", "diferencia de victorias (IC 95%)"], rows, numeric_from=2))
+    for cfr in report.get("cfr", []):
+        parts.append(f"<h2>MCCFR ({html.escape(cfr['cfr'])})</h2>")
+        policy = cfr.get("politica", {})
+        rows = [
+            ["infosets en la tabla", f"{max(cfr['infosets_por_worker']):,}"],
+            ["bytes por infoset al entrenar", f"{max(cfr['bytes_por_infoset']):.1f}"],
+            ["pico de RSS por worker (MB)", f"{cfr['rss_mb_pico']:.0f}"],
+        ]
+        if policy:
+            rows += [
+                ["infosets en la política", f"{policy['infosets']:,}"],
+                ["bytes por infoset en la política", f"{policy['policy_bytes_per_infoset']:.1f}"],
+                ["archivo (MB)", f"{policy['file_bytes'] / 2**20:.1f}"],
+                ["contra el heurístico", _interval(policy["vs_heuristic"], "win_rate")],
+                ["contra random", _interval(policy["vs_random"], "win_rate")],
+            ]
+        parts.append(_table(["medida", "valor"], rows))
+    return parts
+
+
 def write_html(out_dir: Path, report: dict, figures: list[dict]) -> None:
     sections: dict[str, list[dict]] = {}
     for f in figures:
@@ -445,16 +524,8 @@ def write_html(out_dir: Path, report: dict, figures: list[dict]) -> None:
         "table{border-collapse:collapse;font-size:13px;margin:8px 0}td,th{padding:4px 10px;border-bottom:1px solid #e1e0d9;text-align:left}"
         "th{color:#52514e;font-weight:600}td.n{text-align:right;font-variant-numeric:tabular-nums}</style></head><body>",
         "<h1>Reporte de investigación · truco con señas</h1>",
+        *_summary_tables(report),
     ]
-    finals = report.get("curvas_finales", [])
-    if finals:
-        parts.append("<h2>Última evaluación de cada corrida</h2><table><tr><th>corrida</th><th>medida</th><th>tasa</th><th>IC 95%</th></tr>")
-        for row in finals:
-            parts.append(
-                f"<tr><td>{html.escape(row['run'])}</td><td>{html.escape(row['medida'])}</td>"
-                f"<td class='n'>{row['tasa']:.3f}</td><td class='n'>[{row['ci95'][0]:.3f}, {row['ci95'][1]:.3f}]</td></tr>"
-            )
-        parts.append("</table>")
     for section, items in sections.items():
         parts.append(f"<h2>{html.escape(section)}</h2>")
         for f in items:
