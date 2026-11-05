@@ -87,8 +87,8 @@ function agentLabel(spec) {
 
 function optionsMarkup(selected) {
   const groups = [
-    ['Redes PPO', app.agents.filter((a) => a.family === 'ppo')],
-    ['Con reglas', app.agents.filter((a) => a.family === 'heuristic' || a.family === 'random')],
+    ['Inteligencias artificiales', app.agents.filter((a) => a.family === 'ppo')],
+    ['Programados a mano', app.agents.filter((a) => a.family === 'heuristic' || a.family === 'random')],
   ];
   return groups
     .filter(([, list]) => list.length)
@@ -139,7 +139,7 @@ function renderSetup() {
   const cfg = savedConfig();
   const mode = app.setupMode;
   $$('.segmented [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-  $('#mode-help').textContent = mode === 'play' ? 'Vos y un agente contra dos agentes.' : 'Cuatro agentes, a la velocidad que quieras.';
+  $('#mode-help').textContent = mode === 'play' ? 'Vos y una IA de compañera contra dos rivales.' : 'Mirá jugar solas a dos parejas, a la velocidad que quieras.';
   $('#setup-ok').textContent = mode === 'play' ? 'Repartir' : 'Empezar';
   const grid = $('#setup-grid');
   if (mode === 'play') {
@@ -164,15 +164,15 @@ function renderSetup() {
       </select></div>`;
   $('#setup-options').innerHTML = `
     <div class="field"><span class="label">Puntos</span><div class="segmented" role="group" aria-label="Puntos">${targets}</div></div>
-    <div class="field"><label for="opt-spy">Pescar una seña rival</label><select id="opt-spy">${spy}</select></div>
+    <div class="field"><label for="opt-spy" title="Chance de que el rival vea la seña que le hacés a tu compañero, como en una mesa de verdad">Chance de que el rival vea tu seña</label><select id="opt-spy">${spy}</select></div>
     ${extra}`;
   $$('#setup-options [data-target]').forEach((b) => b.addEventListener('click', () => {
     $$('#setup-options [data-target]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
   }));
   const ppo = app.agents.filter((a) => a.family === 'ppo' && a.kind === 'ppo').length;
   $('#setup-note').textContent = ppo
-    ? `${ppo} ${ppo === 1 ? 'red entrenada encontrada' : 'redes entrenadas encontradas'} en runs/`
-    : 'No encontré checkpoints en runs/: entrená uno o pasá --checkpoint.';
+    ? `${ppo} ${ppo === 1 ? 'IA entrenada lista' : 'IA entrenadas listas'} para jugar`
+    : 'No encontré redes entrenadas en runs/: entrená una o pasá --checkpoint.';
 }
 
 function readSetup() {
