@@ -10,11 +10,11 @@ from truco.encoding import action_mask, encode, layout
 from truco.engine import TrucoHand
 from truco.rules import Rules
 
-from ..base import Agent
 from .net import TrucoNet, load_checkpoint
+from .policy import PolicyAgent
 
 
-class PPOAgent(Agent):
+class PPOAgent(PolicyAgent):
     name = "ppo"
 
     def __init__(
