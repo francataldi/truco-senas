@@ -223,7 +223,9 @@ def plot_infoset_curve(curve: list[dict], path: str | Path, title: str = "MCCFR:
     fig, (left, right) = plt.subplots(1, 2, figsize=(10.0, 3.8))
     shared = any("total_iterations" in r and int(r["total_iterations"]) != int(r["iteration"]) for r in curve)
     if shared:
-        groups = [("tabla compartida", sorted(curve, key=lambda r: int(r["total_iterations"])), "total_iterations")]
+        first = min(int(r["worker"]) for r in curve)
+        rows = sorted((r for r in curve if int(r["worker"]) == first), key=lambda r: int(r["total_iterations"]))
+        groups = [("tabla compartida", rows, "total_iterations")]
         xlabel = "iteraciones sumando todos los workers"
     else:
         workers = sorted({int(r["worker"]) for r in curve})
@@ -242,6 +244,7 @@ def plot_infoset_curve(curve: list[dict], path: str | Path, title: str = "MCCFR:
     left.set_title(title, loc="left")
     left.set_xlabel(xlabel)
     left.set_ylabel("infosets (millones)")
+    left.set_ylim(bottom=0)
     right.set_title("infosets nuevos cada 1000 iteraciones", loc="left")
     right.set_xlabel(xlabel)
     right.set_yscale("log")
