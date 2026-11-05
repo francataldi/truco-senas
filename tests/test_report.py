@@ -151,6 +151,9 @@ def test_build_report_writes_every_figure(fake_runs):
     assert summary["ligas"][0]["ancla"] == "heuristico"
     html = (out / "reporte.html").read_text(encoding="utf-8")
     assert html.count("<img") == len(report["figuras"])
+    for heading in ("Última evaluación de cada corrida", "Cross-play", "Valor de cada componente de las señas", "MCCFR"):
+        assert heading in html, heading
+    assert "contra el heurístico" in html and "vs_heuristic" not in html
     assert "\\toprule" in (out / "tablas.tex").read_text(encoding="utf-8")
     again = build_report(fake_runs, out, signal_hands=60, bootstrap=20)
     assert len(again["figuras"]) == len(report["figuras"])
