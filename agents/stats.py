@@ -40,17 +40,20 @@ def difference_summary(k1: float, n1: int, k2: float, n2: int) -> dict:
 
 
 
-def _paired_draws(base: list[float], other: list[float], samples: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
+def _paired_draws(base: list[float], other: list[float], samples: int, seed: int, block: int = 1) -> tuple[np.ndarray, np.ndarray]:
     b = np.asarray(base, dtype=np.float64)
     o = np.asarray(other, dtype=np.float64)
     if b.shape != o.shape or b.size == 0:
         raise ValueError("las dos condiciones tienen que tener los mismos partidos")
-    idx = np.random.default_rng(seed).integers(0, b.size, size=(samples, b.size))
+    if block < 1 or b.size % block:
+        block = 1
+    starts = np.random.default_rng(seed).integers(0, b.size // block, size=(samples, b.size // block)) * block
+    idx = (starts[..., None] + np.arange(block)).reshape(samples, b.size)
     return b[idx], o[idx]
 
 
-def paired_difference(base: list[float], other: list[float], samples: int = 2000, seed: int = 0) -> dict:
-    bb, oo = _paired_draws(base, other, samples, seed)
+def paired_difference(base: list[float], other: list[float], samples: int = 2000, seed: int = 0, block: int = 1) -> dict:
+    bb, oo = _paired_draws(base, other, samples, seed, block)
     lo, hi = np.quantile(bb.mean(1) - oo.mean(1), [0.025, 0.975])
     d = float(np.mean(base) - np.mean(other))
     return {"diff": round(d, 4), "ci95": [round(float(lo), 4), round(float(hi), 4)]}
@@ -64,8 +67,10 @@ def _adjusted(b: np.ndarray, o: np.ndarray, expected: float) -> tuple[np.ndarray
     return (expected - om) + beta * (bm - expected), beta
 
 
-def control_adjusted_difference(base: list[float], other: list[float], expected: float = 0.5, samples: int = 2000, seed: int = 0) -> dict:
-    bb, oo = _paired_draws(base, other, samples, seed)
+def control_adjusted_difference(
+    base: list[float], other: list[float], expected: float = 0.5, samples: int = 2000, seed: int = 0, block: int = 1
+) -> dict:
+    bb, oo = _paired_draws(base, other, samples, seed, block)
     value, beta = _adjusted(np.asarray(base, dtype=np.float64)[None], np.asarray(other, dtype=np.float64)[None], expected)
     lo, hi = np.quantile(_adjusted(bb, oo, expected)[0], [0.025, 0.975])
     return {"diff": round(float(value[0]), 4), "ci95": [round(float(lo), 4), round(float(hi), 4)], "beta": round(float(beta[0]), 4)}

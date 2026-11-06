@@ -190,3 +190,10 @@ def test_paired_and_control_adjusted_differences():
     assert adjusted["ci95"][0] <= adjusted["diff"] <= adjusted["ci95"][1]
     with pytest.raises(ValueError):
         paired_difference([1, 0], [1])
+    pairs = np.repeat(rng.integers(0, 2, 200), 2)
+    other = np.where(rng.random(400) < 0.3, 0, pairs)
+    by_pair = paired_difference(pairs, other, block=2)
+    single = paired_difference(pairs, other)
+    assert by_pair["diff"] == single["diff"]
+    assert by_pair["ci95"][1] - by_pair["ci95"][0] > single["ci95"][1] - single["ci95"][0]
+    assert paired_difference(pairs[:-1], other[:-1], block=2)["diff"] == round(float(pairs[:-1].mean() - other[:-1].mean()), 4)
