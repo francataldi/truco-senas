@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 set PYTHONUTF8=1
-python -m pytest -q || exit /b 1
+python -m pytest -q || (pause & exit /b 1)
 title Controles 1/3: sin bonus ni cabeza auxiliar
 python scripts\train_ppo.py --config configs\ppo_sin_sesgos.yaml
 title Controles 2/3: sin bonus de informacion

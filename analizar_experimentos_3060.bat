@@ -31,3 +31,4 @@ python scripts\league.py --runs runs\parejas_senas runs\parejas_espias runs\pare
 title Analisis 6/6: reporte
 python scripts\report.py --runs %E% --out %E%\reporte
 title Experimentos terminados
+pause
