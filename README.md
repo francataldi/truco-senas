@@ -174,6 +174,8 @@ python -m pytest -q
 | Entrenar las tres corridas principales (con señas, sin señas y con espías) y el MCCFR | `entrenar_principales.bat` |
 | Analizar el diccionario de señas | `python scripts/analyze_signals.py --checkpoint runs/parejas_senas/last.pt` |
 | Toda la investigación (semillas, MCCFR, ablaciones, cross-play, liga, reporte). Necesita antes `entrenar_principales.bat` | `investigacion.bat` |
+| Controles sin el bonus de información, sin la cabeza auxiliar y sin ninguno de los dos, más su análisis con partidos duplicados, en `runs_experimentos/` | `entrenar_controles.bat` |
+| Solo el análisis de esos controles | `analizar_controles.bat` |
 | Demo local con servidor | `python scripts/serve.py --open` |
 | Armar la demo estática para GitHub Pages | `python scripts/build_web.py --runs runs --dictionaries runs/reporte` |
 
