@@ -171,6 +171,9 @@ def test_resume_keeps_hands_and_drops_unsaved_rows(tmp_path):
     cfg.eval_every = 100
     train(cfg)
     metrics = Path(cfg.out_dir) / "metrics.csv"
+    evals = Path(cfg.out_dir) / "eval.jsonl"
+    with open(evals, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"iteration": 3}) + "\n")
     with open(metrics, "a", encoding="utf-8") as f:
         f.write("3" + ",0" * (len(metrics.read_text(encoding="utf-8").splitlines()[0].split(",")) - 1) + "\n")
     cfg.iterations = 3
@@ -178,3 +181,5 @@ def test_resume_keeps_hands_and_drops_unsaved_rows(tmp_path):
     rows = list(csv.DictReader(open(metrics, newline="", encoding="utf-8")))
     assert [int(r["iteration"]) for r in rows] == [1, 2, 3]
     assert [int(r["hands"]) for r in rows] == [6, 12, 18]
+    assert [json.loads(line)["iteration"] for line in evals.read_text(encoding="utf-8").splitlines()] == [2, 3]
+    assert "vs_heuristic" in json.loads(evals.read_text(encoding="utf-8").splitlines()[-1])
