@@ -41,12 +41,16 @@ def decide(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -
 
 def advise(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -> Thought:
     legal = hand.legal_actions()
-    if isinstance(agent, PolicyAgent) and not agent.is_mute(hand):
+    if isinstance(agent, PolicyAgent):
+        if agent.is_mute(hand):
+            action = agent.act(hand, seat)
+            return Thought("mute", action, {action: 1.0})
         probs, value, beliefs = agent.evaluate(hand, seat)
         options = _over(legal, probs)
         best = max(options, key=options.get)
         return Thought("policy", best, options, value * value_scale, value, beliefs.tolist())
-    return Thought("rules", HeuristicAgent(seed=len(hand.history)).act(hand, seat))
+    signals = getattr(agent, "use_signals", True)
+    return Thought("rules", HeuristicAgent(seed=len(hand.history), use_signals=signals).act(hand, seat))
 
 
 def _over(legal: list[int], probs: np.ndarray) -> dict[int, float]:

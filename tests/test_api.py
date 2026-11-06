@@ -9,10 +9,11 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient
 
-from agents.heuristic import HeuristicAgent
+from agents.heuristic import HeuristicAgent, classic_signal
 from agents.ppo.net import NetConfig, build_net, save_checkpoint
 from agents.signal_analysis import collect_signals, summarize
 from demo.api import Settings, create_app
+from truco import actions as A
 from truco.rules import Rules
 
 SIGNALS = Rules(num_players=4, signals=True)
@@ -301,6 +302,25 @@ def test_advice_on_human_turn(client, specs):
     assert all(o["action"] >= 11 for o in advice["options"])
     assert abs(sum(o["p"] for o in advice["options"]) - 1) < 1e-3
     assert advice["chosen"] == max(advice["options"], key=lambda o: o["p"])["action"]
+
+
+@pytest.mark.parametrize(
+    ("partner", "kind", "agent"),
+    [("heuristic", "rules", "Jugador clásico"), ("random", "rules", "Jugador clásico"), ("mudo", "mute", None)],
+)
+def test_advice_speaks_the_partners_language(client, specs, partner, kind, agent):
+    spec = specs.get(partner, partner)
+    game = client.post("/api/games", json={"mode": "play", "seats": ["human", specs["senas"], spec, specs["senas"]], "seed": 3}).json()
+    state = last_state(game["events"])
+    advice = client.get(f"/api/games/{game['id']}/advice").json()["advice"]
+    assert advice["kind"] == kind
+    assert advice["beliefs"] is None and advice["value"] is None
+    if partner == "mudo":
+        assert advice["options"] == [{"action": advice["chosen"], "label": advice["chosen_label"], "p": 1.0}]
+    else:
+        assert advice["agent"] == agent
+        cards = [c["index"] for c in state["seats"][0]["cards"]]
+        assert advice["chosen"] == A.signal_action(classic_signal(cards, SIGNALS.signal_vocab))
 
 
 def test_frontend_is_served(client):

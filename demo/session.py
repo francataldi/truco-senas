@@ -13,7 +13,7 @@ from truco.cards import card_from_index
 from truco.engine import PARDA, TRUCO_VALUES, TrucoMatch
 from truco.rules import Rules
 
-from .catalog import HUMAN, AgentInfo, Catalog, SpecError
+from .catalog import BUILTIN, HUMAN, AgentInfo, Catalog, SpecError
 from .dictionary import Dictionary, DictionaryService, concept_holds, gesture
 from .mind import Thought, advise, beliefs_payload, context, decide
 
@@ -169,20 +169,12 @@ class GameSession:
             hand = self.hand
             if self.viewer is None or hand.done or hand.current_player != self.viewer:
                 return None
-            advisor = self._advisor()
+            advisor = self.seats[(self.viewer + 2) % 4]
             thought = advise(advisor.agent, hand, self.viewer, advisor.value_scale)
             payload = self._mind_payload(self.viewer, thought, force=True)
-            payload["agent"] = advisor.info.label
+            payload["agent"] = BUILTIN["heuristic"][1] if advisor.info.family == "random" else advisor.info.label
             payload["advisor_seat"] = advisor.index
             return payload
-
-    def _advisor(self) -> Seat:
-        partner = self.seats[(self.viewer + 2) % 4]
-        candidates = [partner] + [s for s in self.seats if not s.human and s is not partner]
-        for seat in candidates:
-            if seat.info.family == "ppo" and not seat.info.mute:
-                return seat
-        return partner
 
     def _check_seq(self, expected: int | None) -> None:
         if expected is not None and expected != self.seq:

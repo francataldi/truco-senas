@@ -120,7 +120,7 @@ Para el truco mano a mano hay un **MCCFR** tabular con CFR lineal y abstracción
 
 1. Entrá a **[francataldi.github.io/truco-senas](https://francataldi.github.io/truco-senas/)** y esperá unos segundos a que cargue Python.
 2. **Jugar:** te sentás con un compañero PPO contra dos rivales heurísticos. Antes de cada mano elegís una seña: la demo te dice qué va a entender tu compañero con cada gesto.
-3. **Qué piensa la IA:** mirá qué cree tu compañero que tenés vos y qué haría la IA en tu lugar. Qué tan segura estaba de cada jugada y cuántos puntos esperaba sacar se revela al terminar la mano, para no mostrarte sus cartas antes de tiempo.
+3. **Qué piensa la IA:** mirá qué cree tu compañero que tenés vos y qué haría en tu lugar una copia de tu compañero, que habla su mismo idioma de señas. Si tu compañero es el jugador clásico, la sugerencia sale de sus reglas fijas. Qué tan segura estaba de cada jugada y cuántos puntos esperaba sacar se revela al terminar la mano, para no mostrarte sus cartas antes de tiempo.
 4. **Mirar:** dos parejas de agentes juegan solas, la que tiene señas contra la que no. Podés espiar las señas y ajustar la velocidad.
 
 <details>
@@ -195,7 +195,7 @@ agents/
 demo/           servicio de partidas, mente del agente y diccionarios, FastAPI y backend para Pyodide
 scripts/        entrenar, evaluar, analizar, jugar, servir y publicar
 docs/           demo publicada en GitHub Pages
-tests/          133 tests, también en CI sobre Ubuntu y Windows
+tests/          136 tests, también en CI sobre Ubuntu y Windows
 ```
 
 ## Créditos
