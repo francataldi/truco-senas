@@ -23,6 +23,7 @@ def main() -> None:
     parser.add_argument("--scramble-a", action="store_true")
     parser.add_argument("--scramble-b", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--duplicado", action="store_true")
     parser.add_argument("--json", default=None)
     args = parser.parse_args()
     rules = Rules(
@@ -34,8 +35,8 @@ def main() -> None:
     a = make_agent(args.a, seed=args.seed)
     b = make_agent(args.b, seed=args.seed + 1)
     limit_threads()
-    stats = head_to_head(rules, [a], [b], args.matches, seed=args.seed, scramble_a=args.scramble_a, scramble_b=args.scramble_b)
-    result = {"a": args.a, "b": args.b, "rules": rules.to_dict(), **stats.to_dict()}
+    stats = head_to_head(rules, [a], [b], args.matches, seed=args.seed, scramble_a=args.scramble_a, scramble_b=args.scramble_b, duplicate=args.duplicado)
+    result = {"a": args.a, "b": args.b, "rules": rules.to_dict(), "duplicado": args.duplicado, **stats.to_dict()}
     print(json.dumps(result, indent=2, ensure_ascii=False))
     if args.json:
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)
