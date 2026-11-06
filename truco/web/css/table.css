@@ -1175,7 +1175,13 @@ button.felt-chip:hover {
   }
 
   .pos-south .identidad {
-    display: none;
+    gap: 3px;
+    padding-bottom: 2px;
+  }
+
+  .pos-south .chip-mano {
+    left: -6px;
+    transform: none;
   }
 
   .globo {
