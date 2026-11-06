@@ -278,7 +278,7 @@ def train(cfg: TrainConfig) -> Path:
     new_file = not metrics_path.exists() or start == 0
     if not new_file:
         _truncate_metrics(metrics_path, start)
-        _truncate_evals(out / "eval.jsonl", start)
+    _truncate_evals(out / "eval.jsonl", start)
     metrics_file = open(metrics_path, "w" if new_file else "a", newline="", encoding="utf-8")
     writer = None
     try:
