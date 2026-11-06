@@ -278,6 +278,12 @@ export class MindPanel {
   }
 
   push(event) {
+    if (event.type === 'hand_end' && event.minds && event.minds.length) {
+      const revealed = new Map(event.minds.map((m) => [m.ref, m]));
+      this.thoughts = this.thoughts.map((t) => (t.hidden && revealed.has(t.ref) ? revealed.get(t.ref) : t));
+      if (this.enabled) this.render();
+      return;
+    }
     if (!event.thought) return;
     this.thoughts.push(event.thought);
     this.advice = null;
@@ -363,6 +369,8 @@ export class MindPanel {
       const more = rest > 0 ? ` · ${rest} más` : '';
       const count = signal ? '' : ` <span>${thought.options.length} posibles${more}</span>`;
       parts.push(`<div><div class="seccion-titulo">${esc(title)}${count}</div><ul class="probs">${rows.join('')}</ul></div>`);
+    } else if (thought.hidden) {
+      parts.push(`<div class="reglas-nota">Eligió <b>${esc(thought.chosen_label)}</b>. Qué tan segura estaba y cuántos puntos esperaba se ve al terminar la mano: si no, te estaría mostrando sus cartas.</div>`);
     } else if (thought.kind === 'rules') {
       const verb = advice ? 'En tu lugar haría' : 'Eligió';
       parts.push(`<div class="reglas-nota">Decide con reglas fijas, sin probabilidades. ${verb} <b>${esc(thought.chosen_label)}</b>.</div>`);

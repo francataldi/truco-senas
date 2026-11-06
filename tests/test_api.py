@@ -206,6 +206,35 @@ def test_play_mode_hides_rival_information(client, specs):
     assert partner and all(e["token"] is not None and e["thought"] for e in partner)
 
 
+def test_partner_mind_stays_hidden_until_the_hand_ends(client, specs):
+    game = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic", specs["senas"], "heuristic"], "seed": 1}).json()
+    events, _ = play_out(client, game, random.Random(3))
+    hand, hidden = [], 0
+    for event in events:
+        hand.append(event)
+        if event["type"] != "hand_end":
+            continue
+        partner_cards = [card["name"] for card in event["state"]["seats"][2]["cards"]]
+        revealed = {mind["ref"]: mind for mind in event["minds"]}
+        for before in hand[:-1]:
+            thought = before["thought"]
+            if before["seat"] != 2 or not thought:
+                continue
+            assert thought["hidden"] and thought["options"] is None and thought["value"] is None
+            unplayed = [name for name, card in zip(partner_cards, before["state"]["seats"][2]["cards"]) if card is None]
+            public = {k: v for k, v in before.items() if k not in ("state", "thought")}
+            text = json.dumps([public, {k: v for k, v in thought.items() if k != "beliefs"}], ensure_ascii=False)
+            assert not any(name in text for name in unplayed)
+            full = revealed[thought["ref"]]
+            assert full["options"] and full["chosen"] == thought["chosen"]
+            hidden += 1
+        hand = []
+    assert hidden
+    game = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic", specs["senas"], "heuristic"], "seed": 1, "open_cards": True}).json()
+    events, _ = play_out(client, game, random.Random(3))
+    partner = [e["thought"] for e in events if e["seat"] == 2 and e["thought"]]
+    assert partner and all(t["options"] and not t.get("hidden") for t in partner)
+
 def test_open_cards_reveal_rivals(client, specs):
     game = client.post(
         "/api/games",
