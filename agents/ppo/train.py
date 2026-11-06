@@ -212,6 +212,19 @@ def _evaluate(net_state: dict, rules: Rules, net_cfg: NetConfig, matches: int, s
     return result
 
 
+def _truncate_metrics(path: Path, iteration: int) -> None:
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fields = reader.fieldnames
+        rows = [row for row in reader if int(row["iteration"]) <= iteration]
+    if not fields:
+        return
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def _lr(cfg: TrainConfig, iteration: int) -> float:
     frac = min(1.0, iteration / max(1, cfg.iterations))
     return cfg.lr_final + 0.5 * (cfg.lr - cfg.lr_final) * (1 + math.cos(math.pi * frac))
@@ -230,6 +243,7 @@ def train(cfg: TrainConfig) -> Path:
     opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, eps=1e-5, weight_decay=0.0)
     snapshots: list[dict] = []
     start = 0
+    total_hands = 0
     state_path = out / "state.pt"
     if cfg.resume and state_path.exists():
         state = torch.load(state_path, map_location=device, weights_only=False)
@@ -238,6 +252,7 @@ def train(cfg: TrainConfig) -> Path:
         snapshots = state["snapshots"]
         start = state["iteration"]
         rng.setstate(state["rng"])
+        total_hands = int(state.get("hands", start * cfg.workers * cfg.hands_per_worker))
         print(f"retomando desde la iteracion {start}")
     with open(out / "config.json", "w", encoding="utf-8") as f:
         json.dump(asdict(cfg), f, indent=2)
@@ -253,9 +268,10 @@ def train(cfg: TrainConfig) -> Path:
     pool = mp.get_context("spawn").Pool(cfg.workers) if cfg.workers > 1 else None
     metrics_path = out / "metrics.csv"
     new_file = not metrics_path.exists() or start == 0
+    if not new_file:
+        _truncate_metrics(metrics_path, start)
     metrics_file = open(metrics_path, "w" if new_file else "a", newline="", encoding="utf-8")
     writer = None
-    total_hands = 0
     try:
         for it in range(start, cfg.iterations):
             t0 = time.time()
@@ -320,6 +336,7 @@ def train(cfg: TrainConfig) -> Path:
                         "optimizer": opt.state_dict(),
                         "snapshots": snapshots,
                         "iteration": it + 1,
+                        "hands": total_hands,
                         "rng": rng.getstate(),
                     },
                     state_path,
