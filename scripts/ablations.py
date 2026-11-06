@@ -32,6 +32,7 @@ def main() -> None:
     parser.add_argument("--conditions", nargs="*", default=list(CONDITIONS))
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--duplicado", action="store_true")
+    parser.add_argument("--zero-score-prob", type=float, default=1.0)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
     spec_a = args.checkpoint if ":" in args.checkpoint else f"ppo:{Path(args.checkpoint).as_posix()}"
@@ -53,6 +54,7 @@ def main() -> None:
         conditions=tuple(args.conditions),
         marginal_hands=args.marginal_hands,
         duplicate=args.duplicado,
+        zero_score_prob=args.zero_score_prob,
     )
     summary["run"] = path.parent.name
     (out / "ablaciones.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
