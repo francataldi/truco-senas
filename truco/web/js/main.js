@@ -106,10 +106,20 @@ function field(id, label, team, selected, wide = false) {
   </div>`;
 }
 
+const TWINS = { 'sel-left': ['sel-right', 'el rival derecho'], 'sel-b': ['sel-a', 'la pareja A'] };
+
 function describe(select) {
-  const info = app.agents.find((a) => a.spec === select.value);
   const box = $(`[data-desc="${select.id}"]`);
-  if (box) box.textContent = info ? info.description : '';
+  if (!box) return;
+  const info = app.agents.find((a) => a.spec === select.value);
+  if (!info) {
+    box.textContent = '';
+    return;
+  }
+  const head = info.summary ? `<b>${esc(info.summary)}</b> ` : '';
+  const twin = TWINS[select.id];
+  const same = twin && $(`#${twin[0]}`) && $(`#${twin[0]}`).value === select.value;
+  box.innerHTML = head + esc(same ? `Es el mismo tipo de jugador que ${twin[1]}.` : info.description);
 }
 
 function savedConfig() {
@@ -151,7 +161,7 @@ function renderSetup() {
   }
   $$('#setup-grid select').forEach((select) => {
     describe(select);
-    select.addEventListener('change', () => describe(select));
+    select.addEventListener('change', () => $$('#setup-grid select').forEach(describe));
   });
   const spy = SPY_OPTIONS.map(([v, label]) => `<option value="${v}"${Math.abs(v - cfg.spy_prob) < 1e-9 ? ' selected' : ''}>${esc(label)}</option>`).join('');
   const targets = [15, 30].map((t) => `<button type="button" data-target="${t}" aria-pressed="${cfg.target === t}">A ${t}</button>`).join('');

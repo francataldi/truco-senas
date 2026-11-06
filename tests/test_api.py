@@ -86,6 +86,10 @@ def test_agents_lists_checkpoints_and_builtins(client, specs):
     assert kinds[specs["mudo"]]["mute"] is True
     assert kinds[specs["archivo"]]["win_vs_heuristic"] == 0.61
     assert kinds[specs["archivo"]]["dictionary"] == "archivo"
+    assert "61 de cada 100" in kinds[specs["archivo"]]["description"]
+    assert "sin hacer señas" in kinds[specs["mudo"]]["summary"]
+    assert "«sin dudar»" in kinds[specs["greedy"]]["description"]
+    assert all(a["summary"] and a["description"] for a in data["agents"])
     assert data["defaults"]["play"][0] == "human"
     assert len(data["defaults"]["watch"]) == 4
 
