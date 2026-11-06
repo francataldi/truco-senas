@@ -40,6 +40,10 @@ def classic_signal(cards: list[int], vocab: int) -> int:
     return token % vocab
 
 
+def mute_signal(vocab: int) -> int:
+    return SIGNAL_NADA % vocab
+
+
 def _card_value(strength: int) -> float:
     return max(0.0, (strength - 6) / 8.0)
 
@@ -55,7 +59,7 @@ class HeuristicAgent(Agent):
     def act(self, hand: TrucoHand, seat: int) -> int:
         legal = hand.legal_actions()
         if hand.signal_phase:
-            token = classic_signal(hand.hands[seat], hand.rules.signal_vocab) if self.use_signals else 0
+            token = classic_signal(hand.hands[seat], hand.rules.signal_vocab) if self.use_signals else mute_signal(hand.rules.signal_vocab)
             return A.signal_action(token)
         if A.FLOR in legal:
             return A.FLOR
