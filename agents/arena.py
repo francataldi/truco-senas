@@ -118,6 +118,7 @@ def head_to_head(
     scramble_a: bool = False,
     scramble_b: bool = False,
     noise: SignalNoise | None = None,
+    duplicate: bool = False,
 ) -> MatchStats:
     if noise is None:
         noise = SignalNoise(partner_a=scramble_a, partner_b=scramble_b)
@@ -129,7 +130,10 @@ def head_to_head(
         a_team = m % 2
         seats = seat_agents(rules, team_a, team_b, a_team)
         options = noise.for_match(a_team)
-        match = TrucoMatch(rules, rng=random.Random(rng.random()), first_mano=rng.randrange(rules.num_players))
+        if not duplicate or a_team == 0:
+            match_seed = rng.random()
+            first_mano = rng.randrange(rules.num_players)
+        match = TrucoMatch(rules, rng=random.Random(match_seed), first_mano=first_mano)
         for agent in seats:
             agent.reset()
         diff = 0
