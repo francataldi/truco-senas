@@ -330,7 +330,7 @@ export class MindPanel {
   card(thought, advice) {
     const seat = this.game.seats[thought.seat];
     const name = advice ? 'Tu turno' : seat.role;
-    const sub = advice ? `Si fuera vos · lo que haría ${thought.agent}` : thought.agent;
+    const sub = advice ? `${thought.agent} en tu lugar` : thought.agent;
     const parts = [];
     parts.push(`<div class="mente-quien">${miniFace(thought.seat)}
       <div style="min-width:0"><div class="nombre"><span class="quien-nombre">${esc(name)}</span><span class="mente-contexto" title="${esc(thought.context)}">${esc(thought.context)}</span></div><div class="sub" title="${esc(sub)}">${esc(sub)}</div></div></div>`);
@@ -346,7 +346,9 @@ export class MindPanel {
     }
     if (thought.options && thought.kind !== 'rules') {
       const options = thought.options.slice(0, 8);
-      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : 'Qué jugaría';
+      const signal = options.every((o) => actionKind(o.action) === 'signal');
+      const verb = signal ? 'Qué seña haría' : 'Qué jugaría';
+      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : `${verb} con ${advice ? 'tus' : 'sus'} cartas`;
       const chosenLabel = advice ? 'sugerida' : 'elegida';
       const rest = thought.options.length - options.length;
       const rows = options.map((o) => {
@@ -359,7 +361,8 @@ export class MindPanel {
         </li>`;
       });
       const more = rest > 0 ? ` · ${rest} más` : '';
-      parts.push(`<div><div class="seccion-titulo">${esc(title)} <span>${thought.options.length} posibles${more}</span></div><ul class="probs">${rows.join('')}</ul></div>`);
+      const count = signal ? '' : ` <span>${thought.options.length} posibles${more}</span>`;
+      parts.push(`<div><div class="seccion-titulo">${esc(title)}${count}</div><ul class="probs">${rows.join('')}</ul></div>`);
     } else if (thought.kind === 'rules') {
       const verb = advice ? 'En tu lugar haría' : 'Eligió';
       parts.push(`<div class="reglas-nota">Decide con reglas fijas, sin probabilidades. ${verb} <b>${esc(thought.chosen_label)}</b>.</div>`);
@@ -373,9 +376,17 @@ export class MindPanel {
           <span class="barra-base" title="Sin información: ${pct(b.base)}"><i style="width:${width}%"></i><b style="left:${base}%"></b></span>
           <span class="pct${high ? ' alto' : ''}">${pct(b.p)}</span>`;
       });
-      const whose = advice ? 'tu compañero' : 'su compañero';
-      parts.push(`<div title="Predicción de la cabeza auxiliar de la red. La rayita marca la probabilidad sin información.">
-        <div class="seccion-titulo">Cree que ${whose} tiene</div>
+      const viewer = this.game.viewer;
+      const partnerOfYou = !advice && viewer != null && thought.seat !== viewer && thought.seat % 2 === viewer % 2;
+      const heading = advice ? 'Qué puede tener tu compañero' : partnerOfYou ? 'Qué cree que tenés vos' : 'Qué cree que tiene su compañero';
+      const note = advice
+        ? 'Lo que se deduce desde tu lugar, sin ver sus cartas.'
+        : partnerOfYou
+          ? 'Lo que deduce de tu seña y de la mesa, sin ver tus cartas.'
+          : 'Lo que deduce de su seña y de la mesa, sin ver sus cartas.';
+      parts.push(`<div title="Predicción de la cabeza auxiliar de la red: qué probabilidad le da a cada cosa en una mano que no puede ver.">
+        <div class="seccion-titulo">${heading}</div>
+        <div class="creencias-nota">${note} La rayita: sin pistas.</div>
         <div class="creencias">${rows.join('')}</div></div>`);
     }
     return `<div class="mente-card${advice ? ' consejo' : ''}">${parts.join('')}</div>`;
