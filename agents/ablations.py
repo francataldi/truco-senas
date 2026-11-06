@@ -46,8 +46,8 @@ class ConstantSignalAgent(Agent):
         return self.agent.act(hand, seat)
 
 
-def token_marginal(agent: Agent, rules: Rules, hands: int = 2000, seed: int = 0) -> np.ndarray:
-    data = collect_signals(rules, [agent] * rules.num_players, hands, seed=seed)
+def token_marginal(agent: Agent, rules: Rules, hands: int = 2000, seed: int = 0, zero_score_prob: float = 1.0) -> np.ndarray:
+    data = collect_signals(rules, [agent] * rules.num_players, hands, seed=seed, zero_score_prob=zero_score_prob)
     counts = np.bincount(data["tokens"], minlength=rules.signal_vocab).astype(np.float64)
     if counts.sum() == 0:
         return np.full(rules.signal_vocab, 1.0 / rules.signal_vocab)

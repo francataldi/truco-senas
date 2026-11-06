@@ -20,14 +20,16 @@ def main() -> None:
     parser.add_argument("--matches", type=int, default=400)
     parser.add_argument("--out", default=None)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--zero-score-prob", type=float, default=1.0)
     args = parser.parse_args()
     net, rules, _ = load_checkpoint(args.checkpoint)
     out = Path(args.out) if args.out else Path(args.checkpoint).parent / "senas"
     out.mkdir(parents=True, exist_ok=True)
     agent = PPOAgent(net, seed=args.seed)
     limit_threads()
-    data = collect_signals(rules, [agent] * rules.num_players, args.hands, seed=args.seed)
+    data = collect_signals(rules, [agent] * rules.num_players, args.hands, seed=args.seed, zero_score_prob=args.zero_score_prob)
     summary = summarize(data, rules.signal_vocab)
+    summary["prob_marcador_0_0"] = args.zero_score_prob
     full = head_to_head(rules, [agent], [agent], args.matches, seed=args.seed + 1, scramble_b=True)
     heur = head_to_head(rules, [agent], [HeuristicAgent(seed=args.seed)], args.matches, seed=args.seed + 2)
     classic = head_to_head(rules, [HeuristicAgent(seed=1)], [HeuristicAgent(seed=2, use_signals=False)], args.matches, seed=args.seed + 3)
