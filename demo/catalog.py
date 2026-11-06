@@ -187,7 +187,8 @@ class Catalog:
             details["win_vs_heuristic"] = evaluation["vs_heuristic"].get("win_rate")
         parts = ["Una red neuronal que aprendió sola, jugando millones de manos contra sí misma"]
         if details.get("win_vs_heuristic") is not None:
-            parts.append(f"le gana al jugador clásico el {round(100 * details['win_vs_heuristic'])}% de las partidas")
+            table = "" if rules.signals else " en una mesa donde nadie hace señas"
+            parts.append(f"le gana al jugador clásico el {round(100 * details['win_vs_heuristic'])}% de las partidas{table}")
         if not rules.signals:
             parts.append("aprendió sin poder hacer señas")
         elif rules.spy_prob >= 0.5:
