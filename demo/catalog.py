@@ -11,9 +11,29 @@ from agents.heuristic import HeuristicAgent
 
 HUMAN = "human"
 BUILTIN = {
-    "heuristic": ("heuristic", "Jugador clásico", "Un jugador programado a mano: reglas fijas y las señas de siempre del truco."),
-    "heuristic-mudo": ("heuristic", "Jugador clásico sin señas", "El mismo jugador programado a mano, pero sin hacer señas."),
-    "random": ("random", "Jugador al azar", "Elige cualquier jugada válida al azar."),
+    "heuristic": (
+        "heuristic",
+        "Jugador clásico",
+        "Un jugador de reglas fijas que usa las señas de siempre del truco.",
+        "No es una inteligencia artificial: lo programó una persona, regla por regla. "
+        "Canta envido casi siempre que tiene 27 o más, canta truco cuando tiene cartas altas o su compañero le avisó que tiene una, "
+        "y muy de vez en cuando miente. Sus señas son las de siempre: cejas por el ancho de espada, guiño por el de basto, "
+        "boca torcida por los sietes bravos. Las IA se midieron contra él.",
+    ),
+    "heuristic-mudo": (
+        "heuristic",
+        "Jugador clásico sin señas",
+        "El jugador clásico, pero sin hacer ni mirar señas.",
+        "Mismas reglas que el clásico, pero callado: pone siempre la misma cara y no se fija en las señas de su compañero. "
+        "Sirve para ver cuánto le ayudan las señas al clásico.",
+    ),
+    "random": (
+        "random",
+        "Jugador al azar",
+        "Juega cualquier cosa, sin pensar.",
+        "Elige entre las jugadas permitidas como si tirara un dado. "
+        "Es el rival más fácil, y sirve para comprobar que los demás de verdad aprendieron algo.",
+    ),
 }
 PATH_KINDS = ("ppo", "ppo-greedy")
 POLICY_SUFFIXES = (".pt", ".npz")
@@ -30,6 +50,57 @@ class SpecError(ValueError):
     pass
 
 
+def summarize_ppo(rules) -> str:
+    if not rules.signals:
+        return "Una IA que juega sin hacer señas y sin mirar las de nadie."
+    if rules.spy_prob >= 0.5:
+        return "Una IA que aprendió con rivales que le espiaban las señas."
+    return "Una IA que se inventó sus propias señas para hablar con su compañero."
+
+
+def describe_ppo(run: str, rules, win: float | None, greedy: bool) -> str:
+    parts = [
+        "Aprendió a jugar sola, sin que nadie le explique cómo: "
+        "jugó millones de manos en pareja con copias de sí misma y se fue quedando con lo que la hacía ganar."
+    ]
+    if not rules.signals:
+        parts.append(
+            "Lo hizo en un truco donde no existen las señas, así que juega solo con sus cartas y con lo que pasa en la mesa "
+            "(en la partida pone siempre la misma cara). Sirve para medir cuánto ganan las otras gracias a las señas."
+        )
+    elif rules.spy_prob >= 0.5:
+        parts.append(
+            "Le hace gestos a su compañero antes de cada mano, pero se crió en mesas donde los rivales veían la mitad de esos gestos, "
+            "así que avisar sus cartas también le servía al rival."
+        )
+        if run == "parejas_espias":
+            parts.append("Por eso casi dejó de hacerlo: sus gestos dicen muy poco, apenas una pista de si tiene mucho envido.")
+    else:
+        parts.append(
+            "Antes de cada mano le hace un gesto a su compañero (cejas, guiño, boca torcida…) para contarle qué cartas tiene. "
+            "Qué significa cada gesto lo inventó ella, así que no es el código de siempre del truco: "
+            "en la partida, el panel de señas muestra qué quiere decir cada uno."
+        )
+        if run == "parejas_senas":
+            parts.append("Igual llegó sola a algo parecido a las señas de la gente: con «boca a la derecha» avisa que tiene un ancho.")
+    if greedy:
+        parts.append(
+            "Esta versión «sin dudar» hace siempre la jugada que más le gusta; la normal a veces elige otra, "
+            "como si tirara un dado cargado, y por eso es más difícil de leer."
+        )
+    if win is not None:
+        who = "la versión normal gana" if greedy else "gana"
+        wins = round(100 * win)
+        if rules.signals:
+            parts.append(f"Contra el jugador clásico, {who} {wins} de cada 100 partidos.")
+        else:
+            parts.append(
+                f"Contra el jugador clásico, en una mesa donde nadie hace señas, {who} {wins} de cada 100 partidos. "
+                "Ese número no se compara directo con el de las otras IA."
+            )
+    return " ".join(parts)
+
+
 @dataclass(frozen=True)
 class AgentInfo:
     spec: str
@@ -39,6 +110,7 @@ class AgentInfo:
     description: str
     path: Path | None = None
     details: dict = field(default_factory=dict, compare=False)
+    summary: str = ""
 
     @property
     def greedy(self) -> bool:
@@ -57,6 +129,7 @@ class AgentInfo:
             "family": self.family,
             "label": self.label,
             "description": self.description,
+            "summary": self.summary,
             "mute": self.mute,
             **{k: v for k, v in self.details.items() if k != "reward_scale"},
         }
@@ -153,8 +226,8 @@ class Catalog:
         if spec == HUMAN:
             return HUMAN_INFO
         if spec in BUILTIN:
-            family, label, description = BUILTIN[spec]
-            return AgentInfo(spec, spec, family, label, description)
+            family, label, summary, description = BUILTIN[spec]
+            return AgentInfo(spec, spec, family, label, description, summary=summary)
         kind, sep, raw = spec.partition(":")
         if kind in HEADS_UP_KINDS:
             raise SpecError(f"{spec!r} es una estrategia MCCFR de 1 contra 1 y esta mesa es de parejas")
@@ -185,21 +258,10 @@ class Catalog:
         evaluation = _last_eval(path.parent)
         if evaluation and "vs_heuristic" in evaluation:
             details["win_vs_heuristic"] = evaluation["vs_heuristic"].get("win_rate")
-        parts = ["Una red neuronal que aprendió sola, jugando millones de manos contra sí misma"]
-        if details.get("win_vs_heuristic") is not None:
-            table = "" if rules.signals else " en una mesa donde nadie hace señas"
-            parts.append(f"le gana al jugador clásico el {round(100 * details['win_vs_heuristic'])}% de las partidas{table}")
-        if not rules.signals:
-            parts.append("aprendió sin poder hacer señas")
-        elif rules.spy_prob >= 0.5:
-            parts.append("aprendió sabiendo que los rivales espían la mitad de las señas")
-        else:
-            parts.append("inventó su propio idioma de señas")
-        if kind == "ppo-greedy":
-            parts.append("siempre elige la jugada que cree mejor")
         name = RUN_NAMES.get(path.parent.name if path.stem == "last" else "", f"IA · {run}")
         label = f"{name}{' · sin dudar' if kind == 'ppo-greedy' else ''}"
-        return AgentInfo(spec, kind, "ppo", label, ". ".join(p[0].upper() + p[1:] for p in parts) + ".", path, details)
+        description = describe_ppo(run, rules, details.get("win_vs_heuristic"), kind == "ppo-greedy")
+        return AgentInfo(spec, kind, "ppo", label, description, path, details, summary=summarize_ppo(rules))
 
     def load_net(self, path: Path) -> tuple:
         with self._lock:
