@@ -183,3 +183,7 @@ def test_resume_keeps_hands_and_drops_unsaved_rows(tmp_path):
     assert [int(r["hands"]) for r in rows] == [6, 12, 18]
     assert [json.loads(line)["iteration"] for line in evals.read_text(encoding="utf-8").splitlines()] == [2, 3]
     assert "vs_heuristic" in json.loads(evals.read_text(encoding="utf-8").splitlines()[-1])
+    cfg.resume = False
+    cfg.iterations = 2
+    train(cfg)
+    assert [json.loads(line)["iteration"] for line in evals.read_text(encoding="utf-8").splitlines()] == [2]
