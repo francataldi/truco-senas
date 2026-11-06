@@ -49,6 +49,7 @@ CONCEPTS = (
     ("30 o más de envido", "feature", ("envido_30",)),
     ("27 o más de envido", "feature", ("envido_27",)),
     ("dos cartas bravas", "feature", ("dos_bravas",)),
+    ("a lo sumo un dos", "top", ("dos", "falso o 12", "11 o 10", "baja")),
     ("no tengo nada", "top", ("falso o 12", "11 o 10", "baja")),
 )
 UNCLEAR = "sin significado claro"
