@@ -115,11 +115,11 @@ export class Controls {
     const items = options.map((o, i) => {
       const meaning = partnerMute ? 'tu compañero no usa señas' : o.meaning || '';
       const isSuggested = suggested != null && suggested.token === o.token;
-      const extra = isSuggested && suggested.p != null ? ` · ${pct(suggested.p)}` : '';
-      return `<button type="button" class="gesto-btn${isSuggested ? ' sugerida' : ''}" data-act="${o.action}" style="--i:${i}" title="${esc(`${o.gesture}: ${meaning}`)}">
+      const extra = isSuggested && suggested.p != null ? ` · la IA la elegiría con probabilidad ${pct(suggested.p)}` : '';
+      return `<button type="button" class="gesto-btn${isSuggested ? ' sugerida' : ''}" data-act="${o.action}" style="--i:${i}" title="${esc(`${o.gesture}: ${meaning}${extra}`)}">
         <span class="mini-cara">${faceSVG(0, o.token)}</span>
         <span class="g-nombre">${i + 1}. ${esc(o.gesture[0].toUpperCase() + o.gesture.slice(1))}</span>
-        <span class="g-sentido">${esc(meaning)}${esc(extra)}</span>
+        <span class="g-sentido">${esc(meaning)}</span>
       </button>`;
     });
     box.innerHTML = `<div class="picker"><div class="picker-grid">${items.join('')}</div></div>`;
