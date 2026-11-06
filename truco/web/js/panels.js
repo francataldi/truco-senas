@@ -195,8 +195,8 @@ export class SignalsPanel {
       : '';
     const lang = current.language;
     let meta = '';
-    if (lang.source === 'archivo') meta = `Nadie le enseñó qué significa cada gesto: lo descubrimos mirando ${lang.hands.toLocaleString('es-AR')} señas que hizo`;
-    else if (lang.source === 'calculado') meta = `Lo que significa cada gesto, mirando ${lang.hands.toLocaleString('es-AR')} señas que hizo`;
+    if (lang.source === 'archivo') meta = `Nadie le enseñó qué significa cada gesto: lo descubrimos mirando ${lang.hands.toLocaleString('es-AR')} señas que hizo al empezar el partido, 0 a 0. Con el marcador avanzado algunas cambian de sentido`;
+    else if (lang.source === 'calculado') meta = `Lo que significa cada gesto, mirando ${lang.hands.toLocaleString('es-AR')} señas que hizo al empezar el partido, 0 a 0`;
     else meta = 'Este jugador no usa señas: siempre hace el mismo gesto';
     const items = lang.tokens.map((t) => {
       const unused = t.frequency === 0;
