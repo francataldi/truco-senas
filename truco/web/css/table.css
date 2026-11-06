@@ -708,6 +708,7 @@ button.felt-chip:hover {
 .globo {
   position: absolute;
   z-index: 20;
+  width: max-content;
   max-width: 220px;
   padding: 7px 12px;
   border-radius: 14px;
@@ -716,7 +717,7 @@ button.felt-chip:hover {
   font-weight: 800;
   font-size: 15px;
   line-height: 1.2;
-  white-space: nowrap;
+  text-wrap: balance;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
   pointer-events: none;
   animation: globo 2.2s var(--ease-out) both;
