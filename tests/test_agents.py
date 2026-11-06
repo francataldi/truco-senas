@@ -142,3 +142,25 @@ def test_ppo_without_signals_plays_at_signal_table():
 def test_update_threads():
     assert update_threads(TrainConfig(threads=3)) == 3
     assert 1 <= update_threads(TrainConfig()) <= 4
+
+
+def test_collect_signals_can_sample_scores_like_training():
+    class Recorder(HeuristicAgent):
+        def __init__(self):
+            super().__init__(seed=0)
+            self.scores = []
+
+        def act(self, hand, seat):
+            self.scores.append(hand.scores)
+            return super().act(hand, seat)
+
+    rules = Rules(num_players=4, signals=True)
+    fixed, sampled = Recorder(), Recorder()
+    base = collect_signals(rules, [HeuristicAgent(seed=0)] * 4, 50, seed=3)
+    same = collect_signals(rules, [fixed] * 4, 50, seed=3)
+    collect_signals(rules, [sampled] * 4, 200, seed=3, zero_score_prob=0.3)
+    assert np.array_equal(base["tokens"], same["tokens"])
+    assert set(fixed.scores) == {(0, 0)}
+    zero = sum(s == (0, 0) for s in sampled.scores) / len(sampled.scores)
+    assert 0.15 < zero < 0.5
+    assert all(0 <= x < rules.target for s in sampled.scores for x in s)

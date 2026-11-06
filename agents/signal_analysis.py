@@ -32,11 +32,18 @@ def top_card_bucket(cards: list[int]) -> int:
     return 6
 
 
-def collect_signals(rules: Rules, agents: list[Agent], hands: int, seed: int = 0) -> dict:
+def random_scores(rng: random.Random, rules: Rules, zero_score_prob: float) -> tuple[int, int]:
+    if zero_score_prob >= 1.0 or rng.random() < zero_score_prob:
+        return (0, 0)
+    return (rng.randrange(rules.target), rng.randrange(rules.target))
+
+
+def collect_signals(rules: Rules, agents: list[Agent], hands: int, seed: int = 0, zero_score_prob: float = 1.0) -> dict:
     rng = random.Random(seed)
     tokens, feats, tops = [], [], []
     for _ in range(hands):
-        hand = TrucoHand(rules, rng=random.Random(rng.random()), mano=rng.randrange(rules.num_players))
+        scores = random_scores(rng, rules, zero_score_prob)
+        hand = TrucoHand(rules, rng=random.Random(rng.random()), scores=scores, mano=rng.randrange(rules.num_players))
         while hand.signal_phase:
             seat = hand.current_player
             action = agents[seat].act(hand, seat)
