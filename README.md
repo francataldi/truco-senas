@@ -26,7 +26,7 @@ con una demo que se juega en el navegador contra los agentes entrenados.
 
 En el truco de verdad los compañeros se hacen **señas** a escondidas: un guiño es el ancho de basto, levantar las cejas es el ancho de espada. Si un rival las ve, se aprovecha.
 
-Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos que no significan nada**. La recompensa es ganar puntos, más un empujón chico para que la seña dependa de la mano; qué significa cada gesto no se le dice a nadie. Las preguntas eran tres:
+Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos que no significan nada**. La recompensa es ganar puntos, más un empujón chico para que la seña dependa de lo que ve el jugador; qué significa cada gesto no se le dice a nadie. Las preguntas eran tres:
 
 1. ¿Los agentes inventan un idioma, o los gestos quedan como ruido?
 2. Si lo inventan, ¿qué significa cada seña?
@@ -71,13 +71,13 @@ Después de 3000 iteraciones de PPO (15,4 millones de manos), cada gesto pasó a
 
 La seña dice **0,52 bits** sobre la mejor carta de la mano, con un intervalo bootstrap de 0,51 a 0,54. Nadie les enseñó la convención humana: llegaron solos a algo muy parecido, con la señal más fuerte en el ancho de espada, igual que en una mesa de verdad. Avisar que la mano es floja también es información para el compañero.
 
-Ese es el diccionario del comienzo del partido. La red ve el marcador y el idioma se corre a medida que avanza. Medido con los pesos float16 de la demo, a 15 a 15 "ojos cerrados" pasa a anunciar 27 o más de envido y "beso" deja de significar algo claro, y la información sobre la mejor carta baja de 0,52 bits a 0 a 0 a 0,43 a 15 a 15 y a 0,36 a 25 a 12. "Boca a la derecha = tengo un ancho" se mantiene todo el partido. `analyze_signals.py --zero-score-prob 0.3` mide el diccionario con marcadores sorteados como en el entrenamiento.
+Ese es el diccionario del comienzo del partido. La red ve el marcador y el idioma se corre a medida que avanza. Medido con los pesos float16 de la demo, a 15 a 15 "ojos cerrados" pasa a anunciar 27 o más de envido y "beso" deja de significar algo claro, y la información sobre la mejor carta baja de 0,52 bits (0 a 0) a 0,43 (15 a 15) y 0,36 (25 a 12). "Boca a la derecha = tengo un ancho" se mantiene todo el partido. `analyze_signals.py --zero-score-prob 0.3` mide el diccionario con marcadores sorteados como en el entrenamiento.
 
 ### 2. Las señas valen partidos
 
 <p align="center"><img src="docs/img/ablaciones.png" alt="Ablaciones: qué pasa si se mezclan las señas del compañero, las de los rivales o ambas" width="900"></p>
 
-Contra una copia intacta de sí mismo, un equipo al que se le mezclan las señas del compañero gana el **34%** de las partidas, y uno que hace siempre la seña más usada (boca a la izquierda, que el compañero lee como "a lo sumo un dos") gana el **32%**. Por simetría, sin tocar nada tendría que ganar el 50%: escuchar al compañero vale 16 puntos de tasa de victoria (IC 95% de 13 a 19), espiar a los rivales vale 7 (de 4 a 10) y señalar vale 18 (de 15 a 21).
+Contra una copia intacta de sí mismo, un equipo al que se le mezclan las señas del compañero gana el **34%** de las partidas, y uno que hace siempre la seña más usada al empezar el partido (boca a la izquierda, que el compañero lee como "a lo sumo un dos") gana el **32%**. Por simetría, sin tocar nada tendría que ganar el 50%: escuchar al compañero vale 16 puntos de tasa de victoria (IC 95% de 13 a 19), espiar a los rivales vale 7 (de 4 a 10) y señalar vale 18 (de 15 a 21).
 
 Una advertencia: el control sin tocar nada, con los mismos repartos, dio 44% en vez de 50%, así que parte de esas diferencias puede ser suerte de las cartas, sobre todo los 7 puntos de espiar. `scripts/ablations.py` ahora informa también cada valor ajustado por ese control y puede jugar cada reparto dos veces con las parejas cambiadas (`--duplicado`). Los números de arriba son de antes de ese cambio.
 
@@ -93,13 +93,13 @@ Los diccionarios de dos semillas coinciden un 18% de las veces, igual que por az
 
 <p align="center"><img src="docs/img/diccionario_parejas_espias.png" alt="Diccionario de señas cuando los rivales ven las señas con probabilidad 0,5" width="760"></p>
 
-Cuando cada seña tiene un 50% de chance de que la vean los rivales, los agentes **dejan de avisar sus cartas**: la información sobre la mejor carta cae de 0,52 a 0,02 bits. Lo único que siguen señalando es el envido, con 0,14 bits sobre "27 o más". Señalizar deja de valer: 3 puntos (IC 95% de 0 a 6), que no se distinguen de cero, contra 18 sin espías.
+Cuando cada seña tiene un 50% de chance de que la vean los rivales, los agentes **dejan de avisar sus cartas**: la información sobre la mejor carta cae de 0,52 a 0,02 bits. Lo único que siguen señalando es el envido, con 0,14 bits sobre "27 o más". Señalizar casi no vale: 3 puntos (IC 95% de 0 a 6), que no se distinguen de cero, contra 18 sin espías.
 
 ### 5. Una liga para ordenarlos a todos
 
 <p align="center"><img src="docs/img/liga_liga.png" alt="Ratings Bradley-Terry de la liga entre checkpoints, con intervalos bootstrap" width="640"></p>
 
-Hay un torneo todos contra todos entre checkpoints de distintas iteraciones, el heurístico con señas clásicas, el heurístico mudo y un jugador aleatorio. Los ratings son de Bradley-Terry y los intervalos, por bootstrap. Con el heurístico en 0, el agente con señas termina en **+190 Elo**, el de espías en +184 y el entrenado sin señas en +177. Los intervalos de los tres se pisan: con estos datos no se puede decir cuál es más fuerte.
+Hay un torneo todos contra todos entre checkpoints de distintas iteraciones, el heurístico con señas clásicas, el heurístico mudo y un jugador aleatorio. Los ratings son de Bradley-Terry y los intervalos, por bootstrap. Con el heurístico en 0, el agente con señas termina en **+190 Elo**, el de espías en +184 y el entrenado sin señas en +177. Las diferencias, de 6 y 13 Elo, son chicas frente a la incertidumbre de cada rating: para ordenarlos haría falta compararlos directamente entre sí.
 
 ### 6. Teoría de juegos para el 1 contra 1
 
