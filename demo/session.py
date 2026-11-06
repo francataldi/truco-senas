@@ -203,6 +203,7 @@ class GameSession:
     def _deal(self) -> None:
         self.hand = self.match.new_hand(scramble_teams=self.scramble)
         self.hand_no += 1
+        self.hidden_minds = []
         mano = self.hand.mano
         self._emit("deal", mano, f"Mano {self.hand_no}: es mano {self._who(mano)}")
 
@@ -217,6 +218,9 @@ class GameSession:
 
     def _sees_mind(self, seat: int) -> bool:
         return self.viewer is None or self.open_cards or seat % 2 == self.viewer % 2
+
+    def _hides_mind(self, seat: int) -> bool:
+        return not self._sees_cards(seat)
 
     def _visible_token(self, seat: int) -> int | None:
         hand = self.hand
@@ -272,7 +276,7 @@ class GameSession:
         if thought.probs is not None:
             ranked = sorted(thought.probs.items(), key=lambda kv: (-kv[1], kv[0]))
             options = [{"action": a, "label": self.label(seat, a), "p": round(p, 4)} for a, p in ranked]
-        return {
+        payload = {
             "kind": thought.kind,
             "seat": seat,
             "agent": self.seats[seat].info.label,
@@ -283,6 +287,11 @@ class GameSession:
             "value": None if thought.value is None else round(thought.value, 3),
             "beliefs": beliefs_payload(thought.beliefs),
         }
+        if force or not self._hides_mind(seat):
+            return payload
+        payload["ref"] = len(self.hidden_minds)
+        self.hidden_minds.append(payload)
+        return {**payload, "options": None, "value": None, "hidden": True}
 
     def _step(self, seat: int, action: int, thought: Thought | None) -> None:
         hand = self.hand
@@ -386,7 +395,7 @@ class GameSession:
                 continue
             label = self.seats[s].language.label(token)
             checks[str(s)] = {"token": token, "label": label, "holds": concept_holds(label, hand.hands[s])}
-        self._emit("hand_end", None, text, winner=team, reason=reason, points=list(hand.points), checks=checks)
+        self._emit("hand_end", None, text, winner=team, reason=reason, points=list(hand.points), checks=checks, minds=self.hidden_minds)
         if self.match.done:
             w = self.match.winner
             scores = self.match.scores
