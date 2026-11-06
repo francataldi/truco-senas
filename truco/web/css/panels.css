@@ -605,6 +605,13 @@
   text-transform: none;
 }
 
+.creencias-nota {
+  margin: -2px 0 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+
 .gauge {
   position: relative;
   height: 24px;
