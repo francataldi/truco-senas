@@ -330,7 +330,7 @@ export class MindPanel {
   card(thought, advice) {
     const seat = this.game.seats[thought.seat];
     const name = advice ? 'Tu turno' : seat.role;
-    const sub = advice ? `Si fuera vos · lo que haría ${thought.agent}` : thought.agent;
+    const sub = advice ? `Con tus cartas · lo que haría ${thought.agent}` : thought.agent;
     const parts = [];
     parts.push(`<div class="mente-quien">${miniFace(thought.seat)}
       <div style="min-width:0"><div class="nombre"><span class="quien-nombre">${esc(name)}</span><span class="mente-contexto" title="${esc(thought.context)}">${esc(thought.context)}</span></div><div class="sub" title="${esc(sub)}">${esc(sub)}</div></div></div>`);
@@ -346,7 +346,7 @@ export class MindPanel {
     }
     if (thought.options && thought.kind !== 'rules') {
       const options = thought.options.slice(0, 8);
-      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : 'Qué jugaría';
+      const title = thought.kind === 'random' ? 'Al azar' : thought.kind === 'mute' ? 'Seña fija' : advice ? 'Qué haría con tus cartas' : 'Qué jugaría con sus cartas';
       const chosenLabel = advice ? 'sugerida' : 'elegida';
       const rest = thought.options.length - options.length;
       const rows = options.map((o) => {
@@ -374,8 +374,8 @@ export class MindPanel {
           <span class="pct${high ? ' alto' : ''}">${pct(b.p)}</span>`;
       });
       const whose = advice ? 'tu compañero' : 'su compañero';
-      parts.push(`<div title="Predicción de la cabeza auxiliar de la red. La rayita marca la probabilidad sin información.">
-        <div class="seccion-titulo">Cree que ${whose} tiene</div>
+      parts.push(`<div title="Predicción de la cabeza auxiliar de la red: qué probabilidad le da a cada cosa en la mano del compañero. La rayita marca la probabilidad sin ninguna pista.">
+        <div class="seccion-titulo">Qué cree que tiene ${whose}</div>
         <div class="creencias">${rows.join('')}</div></div>`);
     }
     return `<div class="mente-card${advice ? ' consejo' : ''}">${parts.join('')}</div>`;
