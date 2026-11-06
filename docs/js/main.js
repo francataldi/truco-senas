@@ -523,8 +523,8 @@ async function beginHumanTurn(state, gen) {
       const { advice } = await api.advice(app.game.id);
       if (!current() || !advice) return;
       if (mind.enabled) mind.setAdvice(advice);
-      if (advice.kind === 'policy' && advice.chosen >= 11) {
-        const option = advice.options.find((o) => o.action === advice.chosen);
+      if (!partner.mute && advice.chosen >= 11) {
+        const option = advice.kind === 'policy' ? advice.options.find((o) => o.action === advice.chosen) : null;
         controls.picker(state, { token: advice.chosen - 11, p: option ? option.p : null }, partner.mute);
       }
     } catch (error) {
