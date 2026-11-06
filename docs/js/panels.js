@@ -188,7 +188,8 @@ export class SignalsPanel {
     const tabs = languages.length > 1
       ? `<div class="dic-tabs" role="group" aria-label="Diccionarios">${languages
           .map((l) => {
-            const name = viewer != null ? (l.seats.includes(2) ? 'Compañero' : 'Rivales') : this.teamName(l.seats);
+            const rivals = l.seats.length > 1 ? 'Rivales' : this.game.seats[l.seats[0]].role;
+            const name = viewer != null ? (l.seats.includes(2) ? 'Compañero' : rivals) : this.teamName(l.seats);
             return `<button type="button" data-lang="${esc(l.spec)}" aria-pressed="${l.spec === current.spec}" title="${esc(l.label)}">${esc(name)}</button>`;
           })
           .join('')}</div>`
