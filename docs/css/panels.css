@@ -1198,3 +1198,16 @@
     max-height: 340px;
   }
 }
+
+@media (max-width: 520px) {
+  .controles.watch {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "estado"
+      "ritmo";
+  }
+
+  .controles.watch .ritmo {
+    justify-content: space-between;
+  }
+}
