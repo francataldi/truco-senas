@@ -97,7 +97,7 @@ def test_token_marginal_is_a_distribution():
     assert np.isclose(marginal.sum(), 1.0)
     assert marginal.max() < 1.0
     mute = token_marginal(HeuristicAgent(seed=0, use_signals=False), PAREJAS, hands=50, seed=1)
-    assert mute[0] == 1.0
+    assert mute[6] == 1.0
 
 
 def test_condition_setup_covers_every_condition():
@@ -145,7 +145,7 @@ def test_run_ablations_with_heuristics():
     assert against["referencia_valores"] == "normal_medido"
     assert against["control_simetria"] is None
     assert set(against["valores"]) == {"valor_neto_de_señalar"}
-    assert against["marginal_b"][0] == 1.0
+    assert against["marginal_b"][6] == 1.0
     with pytest.raises(ValueError):
         run_ablations(Rules(num_players=4, signals=False), "heuristic", "random", matches=2)
 

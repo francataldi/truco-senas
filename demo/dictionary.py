@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from agents.heuristic import mute_signal
 from agents.signal_analysis import TOP_CARD_NAMES, collect_signals, summarize, top_card_bucket
 from truco.cards import N_CARDS
 from truco.features import FEATURE_NAMES, hand_features
@@ -182,8 +183,10 @@ def from_summary(summary: dict, source: str, vocab: int = 8, path: str | None = 
     )
 
 
-def mute_dictionary(vocab: int = 8) -> Dictionary:
-    tokens = [TokenMeaning(t, gesture(t)[0], "siempre la misma, no informa nada" if t == 0 else UNUSED, None, 1.0 if t == 0 else 0.0) for t in range(vocab)]
+def mute_dictionary(vocab: int = 8, token: int = 0) -> Dictionary:
+    tokens = [
+        TokenMeaning(t, gesture(t)[0], "siempre la misma, no informa nada" if t == token else UNUSED, None, 1.0 if t == token else 0.0) for t in range(vocab)
+    ]
     return Dictionary("mudo", 0, 0.0, 0.0, tokens)
 
 
@@ -241,7 +244,7 @@ class DictionaryService:
     def _build(self, info: AgentInfo) -> Dictionary:
         vocab = self.rules.signal_vocab
         if info.mute:
-            return mute_dictionary(vocab)
+            return mute_dictionary(vocab, mute_signal(vocab) if info.kind == "heuristic-mudo" else 0)
         path = dictionary_file(info)
         if path is not None and path.is_file():
             try:

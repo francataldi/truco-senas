@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+import pytest
 import torch
 
 from agents.arena import head_to_head
@@ -164,3 +165,17 @@ def test_collect_signals_can_sample_scores_like_training():
     zero = sum(s == (0, 0) for s in sampled.scores) / len(sampled.scores)
     assert 0.15 < zero < 0.5
     assert all(0 <= x < rules.target for s in sampled.scores for x in s)
+
+
+def test_mute_heuristic_sends_a_sign_the_classic_partner_ignores():
+    rules = Rules(num_players=4, signals=True)
+    mute = HeuristicAgent(seed=0, use_signals=False)
+    reader = HeuristicAgent(seed=0)
+    hands = {}
+    for token in (None, 0):
+        hand = TrucoHand(rules, rng=random.Random(0))
+        for _ in range(4):
+            hand.step(mute.act(hand, hand.current_player) if token is None else A.signal_action(token))
+        hands[token] = hand
+    assert hands[None].signal_view[2][0] == 6
+    assert reader._strength(hands[None], 2) == pytest.approx(reader._strength(hands[0], 2) - 0.7)
