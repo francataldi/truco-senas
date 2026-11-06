@@ -225,6 +225,14 @@ def _truncate_metrics(path: Path, iteration: int) -> None:
         writer.writerows(rows)
 
 
+def _truncate_evals(path: Path, iteration: int) -> None:
+    if not path.exists():
+        return
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    kept = [line for line in lines if json.loads(line)["iteration"] <= iteration]
+    path.write_text("".join(line + "\n" for line in kept), encoding="utf-8")
+
+
 def _lr(cfg: TrainConfig, iteration: int) -> float:
     frac = min(1.0, iteration / max(1, cfg.iterations))
     return cfg.lr_final + 0.5 * (cfg.lr - cfg.lr_final) * (1 + math.cos(math.pi * frac))
@@ -270,6 +278,7 @@ def train(cfg: TrainConfig) -> Path:
     new_file = not metrics_path.exists() or start == 0
     if not new_file:
         _truncate_metrics(metrics_path, start)
+        _truncate_evals(out / "eval.jsonl", start)
     metrics_file = open(metrics_path, "w" if new_file else "a", newline="", encoding="utf-8")
     writer = None
     try:
