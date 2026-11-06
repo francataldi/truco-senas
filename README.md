@@ -176,6 +176,7 @@ python -m pytest -q
 | Toda la investigación (semillas, MCCFR, ablaciones, cross-play, liga, reporte). Necesita antes `entrenar_principales.bat` | `investigacion.bat` |
 | Controles sin el bonus de información, sin la cabeza auxiliar y sin ninguno de los dos, más su análisis con partidos duplicados, en `runs_experimentos/` | `entrenar_controles.bat` |
 | Solo el análisis de esos controles | `analizar_controles.bat` |
+| Que la PC no se suspenda hasta que termine el análisis de los controles, sin tocar la configuración de energía | `mantener_despierta.bat` |
 | Demo local con servidor | `python scripts/serve.py --open` |
 | Armar la demo estática para GitHub Pages | `python scripts/build_web.py --runs runs --dictionaries runs/reporte` |
 
