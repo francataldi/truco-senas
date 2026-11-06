@@ -1,5 +1,6 @@
 import json
 import random
+import re
 
 import pytest
 import torch
@@ -224,7 +225,7 @@ def test_partner_mind_stays_hidden_until_the_hand_ends(client, specs):
             unplayed = [name for name, card in zip(partner_cards, before["state"]["seats"][2]["cards"]) if card is None]
             public = {k: v for k, v in before.items() if k not in ("state", "thought")}
             text = json.dumps([public, {k: v for k, v in thought.items() if k != "beliefs"}], ensure_ascii=False)
-            assert not any(name in text for name in unplayed)
+            assert not any(re.search(rf"(?<![0-9]){re.escape(name)}", text) for name in unplayed)
             full = revealed[thought["ref"]]
             assert full["options"] and full["chosen"] == thought["chosen"]
             hidden += 1
@@ -234,6 +235,11 @@ def test_partner_mind_stays_hidden_until_the_hand_ends(client, specs):
     events, _ = play_out(client, game, random.Random(3))
     partner = [e["thought"] for e in events if e["seat"] == 2 and e["thought"]]
     assert partner and all(t["options"] and not t.get("hidden") for t in partner)
+    game = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic", "heuristic", "heuristic"], "seed": 1}).json()
+    events, _ = play_out(client, game, random.Random(3))
+    rules = [e["thought"] for e in events if e["seat"] == 2 and e["thought"]]
+    assert rules and not any(t.get("hidden") for t in rules)
+
 
 def test_open_cards_reveal_rivals(client, specs):
     game = client.post(

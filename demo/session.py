@@ -287,7 +287,7 @@ class GameSession:
             "value": None if thought.value is None else round(thought.value, 3),
             "beliefs": beliefs_payload(thought.beliefs),
         }
-        if force or not self._hides_mind(seat):
+        if force or not self._hides_mind(seat) or (options is None and payload["value"] is None):
             return payload
         payload["ref"] = len(self.hidden_minds)
         self.hidden_minds.append(payload)
