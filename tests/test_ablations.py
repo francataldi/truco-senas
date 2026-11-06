@@ -6,6 +6,7 @@ import pytest
 from agents.ablations import CONDITIONS, VALUES, ConstantSignalAgent, condition_setup, run_ablations, token_marginal
 from agents.arena import SignalNoise, head_to_head
 from agents.heuristic import HeuristicAgent
+from agents.stats import control_adjusted_difference, paired_difference
 from truco import actions as A
 from truco.engine import TrucoHand
 from truco.rules import Rules
@@ -136,6 +137,10 @@ def test_run_ablations_with_heuristics():
     constant = summary["condiciones"]["seña_constante"]
     assert summary["valores"]["valor_neto_de_señalar"]["diff"] == round(0.5 - constant["win_rate"], 4)
     assert summary["control_simetria"] is not None
+    assert summary["duplicado"] is False
+    for value in summary["valores"].values():
+        adjusted = value["ajustado_por_control"]
+        assert adjusted["ci95"][0] <= adjusted["diff"] <= adjusted["ci95"][1]
     against = run_ablations(PAREJAS, "heuristic", "heuristic-mudo", matches=4, marginal_hands=50, conditions=("normal", "seña_constante"))
     assert against["referencia_valores"] == "normal_medido"
     assert against["control_simetria"] is None
@@ -144,3 +149,44 @@ def test_run_ablations_with_heuristics():
     with pytest.raises(ValueError):
         run_ablations(Rules(num_players=4, signals=False), "heuristic", "random", matches=2)
 
+
+
+class _FirstDeal(HeuristicAgent):
+    def __init__(self):
+        super().__init__(seed=0)
+        self.deals = []
+        self.fresh = True
+
+    def reset(self):
+        self.fresh = True
+
+    def act(self, hand, seat):
+        if self.fresh:
+            self.fresh = False
+            self.deals.append((hand.mano, tuple(tuple(h) for h in hand.hands)))
+        return super().act(hand, seat)
+
+
+def test_duplicate_matches_replay_the_deal_with_teams_swapped():
+    agent = _FirstDeal()
+    head_to_head(PAREJAS, [agent], [agent], 4, seed=5, duplicate=True)
+    assert agent.deals[0] == agent.deals[1] and agent.deals[2] == agent.deals[3]
+    assert agent.deals[0] != agent.deals[2]
+    plain = _FirstDeal()
+    head_to_head(PAREJAS, [plain], [plain], 4, seed=5)
+    assert plain.deals[0] == agent.deals[0] and plain.deals[1] != plain.deals[0]
+
+
+def test_paired_and_control_adjusted_differences():
+    rng = np.random.default_rng(0)
+    normal = rng.integers(0, 2, 400)
+    assert paired_difference(normal, normal) == {"diff": 0.0, "ci95": [0.0, 0.0]}
+    same = control_adjusted_difference(normal, normal)
+    assert same["diff"] == 0.0 and same["beta"] == 1.0
+    worse = np.where(rng.random(400) < 0.3, 0, normal)
+    adjusted = control_adjusted_difference(normal, worse)
+    raw = 0.5 - worse.mean()
+    assert adjusted["diff"] == round(raw + adjusted["beta"] * (normal.mean() - 0.5), 4)
+    assert adjusted["ci95"][0] <= adjusted["diff"] <= adjusted["ci95"][1]
+    with pytest.raises(ValueError):
+        paired_difference([1, 0], [1])

@@ -487,8 +487,10 @@ def _summary_tables(report: dict) -> list[str]:
         rows = []
         for ab in ablations:
             for key, entry in ab["valores"].items():
-                rows.append([ab["run"], VALUE_LABELS.get(key, key), f"{entry['diff']:+.3f} [{entry['ci95'][0]:+.3f}, {entry['ci95'][1]:+.3f}]"])
-        parts.append(_table(["corrida", "componente", "diferencia de victorias (IC 95%)"], rows, numeric_from=2))
+                adjusted = entry.get("ajustado_por_control")
+                extra = f"{adjusted['diff']:+.3f} [{adjusted['ci95'][0]:+.3f}, {adjusted['ci95'][1]:+.3f}]" if adjusted else "—"
+                rows.append([ab["run"], VALUE_LABELS.get(key, key), f"{entry['diff']:+.3f} [{entry['ci95'][0]:+.3f}, {entry['ci95'][1]:+.3f}]", extra])
+        parts.append(_table(["corrida", "componente", "diferencia de victorias (IC 95%)", "ajustada por el control (IC 95%)"], rows, numeric_from=2))
     for cfr in report.get("cfr", []):
         parts.append(f"<h2>MCCFR ({html.escape(cfr['cfr'])})</h2>")
         policy = cfr.get("politica", {})

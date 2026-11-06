@@ -11,7 +11,7 @@ from .arena import SignalNoise, head_to_head
 from .base import Agent, limit_threads
 from .registry import make_agent
 from .signal_analysis import collect_signals
-from .stats import difference_summary, wilson_interval
+from .stats import control_adjusted_difference, difference_summary, paired_difference, wilson_interval
 
 CONDITIONS = (
     "normal",
@@ -81,8 +81,8 @@ def _run_condition(task: dict) -> dict:
     noise, constant = condition_setup(task["condition"], np.asarray(task["marginal_a"]), np.asarray(task["marginal_b"]))
     if constant is not None:
         agent_a = ConstantSignalAgent(agent_a, constant)
-    stats = head_to_head(rules, [agent_a], [agent_b], task["matches"], seed=task["match_seed"], noise=noise)
-    return {"condition": task["condition"], "stats": stats.to_dict(), "wins": stats.wins_a, "constant_token": constant}
+    stats = head_to_head(rules, [agent_a], [agent_b], task["matches"], seed=task["match_seed"], noise=noise, duplicate=task.get("duplicate", False))
+    return {"condition": task["condition"], "stats": stats.to_dict(), "wins": stats.wins_a, "outcomes": stats.outcomes, "constant_token": constant}
 
 
 def run_ablations(
@@ -94,6 +94,8 @@ def run_ablations(
     workers: int = 1,
     conditions: tuple[str, ...] = CONDITIONS,
     marginal_hands: int = 2000,
+    duplicate: bool = False,
+    bootstrap: int = 2000,
 ) -> dict:
     if not rules.signals:
         raise ValueError("las ablaciones de señas necesitan reglas con señas")
@@ -113,6 +115,7 @@ def run_ablations(
             "match_seed": seed + 1000,
             "marginal_a": marginal_a.tolist(),
             "marginal_b": marginal_b.tolist(),
+            "duplicate": duplicate,
         }
         for condition in conditions
     ]
@@ -128,6 +131,7 @@ def run_ablations(
         "rules": rules.to_dict(),
         "matches": matches,
         "seed": seed,
+        "duplicado": duplicate,
         "marginal_a": [round(float(x), 4) for x in marginal_a],
         "marginal_b": [round(float(x), 4) for x in marginal_b],
         "condiciones": {},
@@ -148,9 +152,13 @@ def run_ablations(
         if condition not in by_condition:
             continue
         r = by_condition[condition]
+        normal = by_condition.get("normal")
         if mirror:
             lo, hi = wilson_interval(r["wins"], matches)
-            summary["valores"][name] = {"diff": round(0.5 - r["wins"] / matches, 4), "ci95": [round(0.5 - hi, 4), round(0.5 - lo, 4)]}
-        elif "normal" in by_condition:
-            summary["valores"][name] = difference_summary(by_condition["normal"]["wins"], matches, r["wins"], matches)
+            value = {"diff": round(0.5 - r["wins"] / matches, 4), "ci95": [round(0.5 - hi, 4), round(0.5 - lo, 4)]}
+            if normal is not None:
+                value["ajustado_por_control"] = control_adjusted_difference(normal["outcomes"], r["outcomes"], samples=bootstrap, seed=seed)
+            summary["valores"][name] = value
+        elif normal is not None:
+            summary["valores"][name] = paired_difference(normal["outcomes"], r["outcomes"], samples=bootstrap, seed=seed)
     return summary
