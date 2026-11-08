@@ -26,11 +26,12 @@ con una demo que se juega en el navegador contra los agentes entrenados.
 
 En el truco de verdad los compañeros se hacen **señas** a escondidas: un guiño es el ancho de basto, levantar las cejas es el ancho de espada. Si un rival las ve, se aprovecha.
 
-Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos que no significan nada**. La recompensa es ganar puntos, más un empujón chico para que la seña dependa de lo que ve el jugador; qué significa cada gesto no se le dice a nadie. Las preguntas eran tres:
+Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos que no significan nada**. La recompensa es ganar puntos; qué significa cada gesto no se le dice a nadie. Las preguntas eran cuatro:
 
 1. ¿Los agentes inventan un idioma, o los gestos quedan como ruido?
 2. Si lo inventan, ¿qué significa cada seña?
 3. ¿Qué pasa con ese idioma cuando los rivales pueden espiar?
+4. ¿El idioma sale del juego, o de los dos empujones chicos que tiene el entrenamiento para que hablen y escuchen?
 
 <details>
 <summary><b>Glosario para no especialistas</b></summary>
@@ -45,6 +46,7 @@ Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos 
 | **Semilla** | El número que fija el azar de un entrenamiento. Dos semillas distintas son como dos parejas que aprendieron por separado. |
 | **Cross-play** | Juntar como compañeros a dos IA que se entrenaron por separado, para ver si se entienden. |
 | **Ablación** | Romper a propósito una pieza, como mezclar las señas, para medir cuánto aportaba. |
+| **Partidos duplicados** | Jugar cada reparto dos veces, con las parejas cambiadas de lugar, para que la suerte de las cartas se cancele. |
 | **Bits** | Cuánta información lleva una seña. 0 bits es no decir nada y cada bit extra es como contestar una pregunta de sí o no. |
 | **Elo** | El mismo puntaje que se usa en ajedrez: 200 puntos de diferencia es ganar aproximadamente 3 de cada 4 partidas. |
 | **Intervalo de confianza (IC 95%)** | El rango donde está el valor real con un 95% de seguridad, por haber jugado una cantidad finita de partidas. |
@@ -71,15 +73,23 @@ Después de 3000 iteraciones de PPO (15,4 millones de manos), cada gesto pasó a
 
 La seña dice **0,52 bits** sobre la mejor carta de la mano, con un intervalo bootstrap de 0,51 a 0,54. Nadie les enseñó la convención humana: llegaron solos a algo muy parecido, con la señal más fuerte en el ancho de espada, igual que en una mesa de verdad. Avisar que la mano es floja también es información para el compañero.
 
-Ese es el diccionario del comienzo del partido. La red ve el marcador y el idioma se corre a medida que avanza. Medido con los pesos float16 de la demo, a 15 a 15 "ojos cerrados" pasa a anunciar 27 o más de envido y "beso" deja de significar algo claro, y la información sobre la mejor carta baja de 0,52 bits (0 a 0) a 0,43 (15 a 15) y 0,36 (25 a 12). "Boca a la derecha = tengo un ancho" se mantiene todo el partido. `analyze_signals.py --zero-score-prob 0.3` mide el diccionario con marcadores sorteados como en el entrenamiento.
+Ese es el diccionario del comienzo del partido. La red ve el marcador y el idioma se corre a medida que avanza. Medido con los pesos float16 de la demo, a 15 a 15 "ojos cerrados" pasa a anunciar 27 o más de envido y "beso" deja de significar algo claro, y la información sobre la mejor carta baja de 0,52 bits (0 a 0) a 0,43 (15 a 15) y 0,36 (25 a 12). Con marcadores sorteados como en el entrenamiento (un 30% de las manos a 0 a 0 y el resto al azar, `analyze_signals.py --zero-score-prob 0.3`) la seña dice **0,42 bits** (de 0,41 a 0,42): "boca a la derecha" sigue avisando un ancho el 68% de las veces y "ojos cerrados" se corre al envido, con 27 o más el 53% de las veces.
 
 ### 2. Las señas valen partidos
 
-<p align="center"><img src="docs/img/ablaciones.png" alt="Ablaciones: qué pasa si se mezclan las señas del compañero, las de los rivales o ambas" width="900"></p>
+<p align="center"><img src="docs/img/ablaciones.png" alt="Ablaciones con partidos duplicados: qué pasa si se mezclan las señas del compañero, las espiadas, ambas, si no espía o si hace siempre la misma seña" width="900"></p>
 
-Contra una copia intacta de sí mismo, un equipo al que se le mezclan las señas del compañero gana el **34%** de las partidas, y uno que hace siempre la seña más usada al empezar el partido (boca a la izquierda, que el compañero lee como "a lo sumo un dos") gana el **32%**. Por simetría, sin tocar nada tendría que ganar el 50%: escuchar al compañero vale 16 puntos de tasa de victoria (IC 95% de 13 a 19), espiar a los rivales vale 7 (de 4 a 10) y señalar vale 18 (de 15 a 21).
+Cada condición se jugó en 1.000 partidos contra una copia intacta de sí mismo, con cada reparto jugado dos veces y las parejas cambiadas de lugar, para que la suerte de las cartas se cancele. Sin tocar nada gana el **49,4%** (IC 95% de 46,3% a 52,5%), como tiene que dar por simetría. Si se le mezclan las señas del compañero gana el **34%**, y si hace siempre la seña más usada al empezar el partido (boca a la izquierda, que el compañero lee como "a lo sumo un dos") gana el **33%**.
 
-Una advertencia: el control sin tocar nada, con los mismos repartos, dio 44% en vez de 50%, así que parte de esas diferencias puede ser suerte de las cartas, sobre todo los 7 puntos de espiar. `scripts/ablations.py` ahora informa también cada valor ajustado por ese control y puede jugar cada reparto dos veces con las parejas cambiadas (`--duplicado`). Los números de arriba son de antes de ese cambio.
+| Qué se le saca | Cuánto pierde, en puntos de tasa de victoria (IC 95%) |
+|---|---|
+| Entender al compañero: sus señas le llegan mezcladas | **16** (13 a 19) |
+| Señalar: hace siempre el mismo gesto | **17** (14 a 20) |
+| Todas las señas: las del compañero y las espiadas, mezcladas | **21** (18 a 23) |
+| Espiar: no ve nunca las señas de los rivales | 1 (−2 a 4), no se distingue de cero |
+| Creerle a lo espiado: ve las señas de los rivales, pero mezcladas | **7** (4 a 10) |
+
+Espiar casi no suma, pero el agente sí le cree a lo que espía: si lo que ve de los rivales está cambiado, pierde 7 puntos. La versión anterior de este análisis jugaba cada reparto una sola vez, el control sin tocar nada daba 44% y espiar parecía valer 7 puntos; con partidos duplicados esa diferencia desaparece. Los valores ajustados por el control, que `scripts/ablations.py` también informa, cambian menos de medio punto.
 
 ### 3. Cada pareja inventa su propio idioma
 
@@ -93,15 +103,45 @@ Los diccionarios de dos semillas coinciden un 18% de las veces, igual que por az
 
 <p align="center"><img src="docs/img/diccionario_parejas_espias.png" alt="Diccionario de señas cuando los rivales ven las señas con probabilidad 0,5" width="760"></p>
 
-Cuando cada seña tiene un 50% de chance de que la vean los rivales, los agentes **dejan de avisar sus cartas**: la información sobre la mejor carta cae de 0,52 a 0,02 bits. Lo único que siguen señalando es el envido, con 0,14 bits sobre "27 o más". Señalizar casi no vale: 3 puntos (IC 95% de 0 a 6), que no se distinguen de cero, contra 18 sin espías.
+Cuando cada seña tiene un 50% de chance de que la vean los rivales, los agentes **dejan de avisar sus cartas**: la información sobre la mejor carta cae de 0,52 a 0,02 bits. Lo único que siguen señalando es el envido, con 0,14 bits sobre "27 o más". Con partidos duplicados, señalar ya no vale nada: el que hace siempre el mismo gesto gana el 52% (IC 95% de 49% a 55%), mientras que sin espías perdía 17 puntos. Entender al compañero todavía vale 5 puntos (de 2 a 8).
 
-### 5. Una liga para ordenarlos a todos
+### 5. El idioma no sale de los empujones
 
-<p align="center"><img src="docs/img/liga_liga.png" alt="Ratings Bradley-Terry de la liga entre checkpoints, con intervalos bootstrap" width="640"></p>
+<p align="center"><img src="docs/img/diccionario_parejas_sin_sesgos.png" alt="Diccionario de señas de la pareja entrenada sin bonus de información ni cabeza auxiliar" width="760"></p>
 
-Hay un torneo todos contra todos entre checkpoints de distintas iteraciones, el heurístico con señas clásicas, el heurístico mudo y un jugador aleatorio. Los ratings son de Bradley-Terry y los intervalos, por bootstrap. Con el heurístico en 0, el agente con señas termina en **+190 Elo**, el de espías en +184 y el entrenado sin señas en +177. Las diferencias, de 6 y 13 Elo, son chicas frente a la incertidumbre de cada rating: para ordenarlos haría falta compararlos directamente entre sí.
+El entrenamiento tiene dos empujones chicos para que hablen y escuchen: el bonus de información y la cabeza auxiliar (ver [Cómo funciona](#cómo-funciona)). Para saber si el idioma sale de ellos se entrenaron tres parejas más, iguales en todo lo demás: sin bonus, sin cabeza auxiliar y sin ninguno de los dos. La figura de arriba es el diccionario de la que no tiene ninguno.
 
-### 6. Teoría de juegos para el 1 contra 1
+| Pareja | Información sobre la mejor carta | El rasgo del que más informa | Entender al compañero vale |
+|---|---|---|---|
+| Con los dos empujones (la principal) | 0,52 bits | el ancho de espada | 16 puntos (13 a 19) |
+| Sin bonus de información | 0,46 bits | el ancho de espada | 14 puntos (11 a 17) |
+| Sin cabeza auxiliar | 0,22 bits | 27 o más de envido | 14 puntos (11 a 17) |
+| Sin ninguno de los dos | 0,39 bits | el ancho de espada | 13 puntos (10 a 16) |
+
+Las cuatro inventan un idioma y lo usan. Si los gestos fueran ruido, la información daría menos de 0,001 bits, y mezclarle las señas al compañero les cuesta entre 13 y 16 puntos de tasa de victoria, medido con partidos duplicados. Con marcadores sorteados, los tres controles dan entre 0,27 y 0,45 bits, casi lo mismo que a 0 a 0.
+
+Las diferencias entre las cuatro no se pueden achacar a los empujones. Hay una sola pareja por variante, y las 5 semillas de la sección 3, que tienen los dos empujones y solo cambian el azar, terminaron entre 0,01 y 0,40 bits a las 800 iteraciones. Para medir cuánto ayuda cada empujón harían falta varias semillas por variante.
+
+### 6. Contra el clásico y entre ellos
+
+<p align="center"><img src="docs/img/liga_liga.png" alt="Ratings Bradley-Terry de la liga entre las seis IA, el heurístico, el heurístico mudo y el jugador al azar, con intervalos bootstrap" width="640"></p>
+
+Contra el jugador clásico, con 2.000 partidos duplicados para cada IA:
+
+| IA | Gana | IC 95% |
+|---|---|---|
+| Con señas (la principal) | 74,4% | 72,4% a 76,3% |
+| Entrenada con espías | 75,2% | 73,3% a 77,1% |
+| Sin señas | 77,0% | 75,1% a 78,8% |
+| Sin bonus de información | 72,0% | 70,0% a 74,0% |
+| Sin cabeza auxiliar | 75,0% | 73,0% a 76,8% |
+| Sin ninguno de los dos empujones | 74,2% | 72,2% a 76,0% |
+
+La que no hace señas le gana al clásico tanto o un poco más que las que sí, y en una mesa donde nadie hace señas llega al 84,5% (82,9% a 86,1%). Las señas valen mucho entre parejas que hablan el mismo idioma, como muestran las ablaciones, pero contra el clásico no se traducen en más victorias. Por qué, no está medido.
+
+En la liga, cada IA juega 400 partidos contra cada una de las otras y contra el clásico, el clásico sin señas y el jugador al azar. Los ratings son de Bradley-Terry y los intervalos, por bootstrap. Con el clásico en 0, las seis IA quedan entre **+151 y +174 Elo**, con intervalos que se pisan: cara a cara, cada control le gana a la pareja principal entre el 49% y el 53% de las veces. Al clásico sus señas le valen 60 Elo: sin ellas queda en −60 (de −77 a −44).
+
+### 7. Teoría de juegos para el 1 contra 1
 
 Para el truco mano a mano hay un **MCCFR** tabular con CFR lineal y abstracción de cartas, puntajes y apuestas. Corrió un millón de iteraciones con 5 procesos que comparten una sola tabla, usó apenas **300 MB de RAM** para unos 600.000 infosets y le gana al heurístico el **73%** de las partidas (intervalo de 68% a 77%).
 
@@ -154,7 +194,7 @@ flowchart LR
 - **Self-play con parámetros compartidos.** Los 4 asientos usan la misma red. En el 20% de las manos, una pareja juega contra una foto congelada de una versión anterior, sacada de un pool de 20, para no olvidar cómo ganarle a estilos viejos.
 - **La fase de señas es parte del juego.** Antes de la mano cada jugador elige uno de 8 gestos. El compañero siempre lo ve y cada rival lo ve con probabilidad `spy_prob`. La recompensa es el resultado de la mano. Nadie les dice qué significa cada gesto, pero hay dos empujones chicos para que hablen y escuchen: el bonus de información y la cabeza auxiliar.
 - **Una cabeza auxiliar** predice 8 rasgos de la mano del compañero, como "tiene el ancho de espada" o "tiene 30 de envido". Eso obliga a la red a aprovechar las señas que recibe, y es lo que muestra la demo en "Cree que tu compañero tiene". Es un sesgo del que escucha: no premia directamente al que hace la seña, porque el gradiente no pasa por el gesto elegido.
-- **PPO estándar:** ventajas con GAE, clipping, entropía para explorar, máscara de acciones ilegales y un bonus a la información de las señas: con peso 0,05, la pérdida premia que la seña dependa del estado del jugador (la entropía de la seña promedio menos la entropía de la seña en cada estado), sin decir de qué tiene que depender. Es un sesgo de señalización positiva como el de [Eccles et al., 2019](https://arxiv.org/abs/1912.05676). Falta el control sin ese bonus (`signal_coef: 0`) para saber si el idioma aparece igual.
+- **PPO estándar:** ventajas con GAE, clipping, entropía para explorar, máscara de acciones ilegales y un bonus a la información de las señas: con peso 0,05, la pérdida premia que la seña dependa del estado del jugador (la entropía de la seña promedio menos la entropía de la seña en cada estado), sin decir de qué tiene que depender. Es un sesgo de señalización positiva como el de [Eccles et al., 2019](https://arxiv.org/abs/1912.05676). Sin ese bonus (`signal_coef: 0`), sin la cabeza auxiliar o sin ninguno de los dos, el idioma aparece igual (sección 5).
 - **Rendimiento:** el motor y la codificación están optimizados, y en cada iteración 5 procesos generan manos en paralelo y después la GPU hace la actualización de PPO. Así salen 3000 iteraciones, unos 15 millones de manos, en 1 h 45 min en una RTX 3060 con un Ryzen 5 5600X.
 - **En el navegador:** las redes se exportan a numpy y se reimplementan sin torch: en float32 coinciden con PyTorch hasta 3·10⁻⁶. La demo usa pesos en float16 para pesar 5 MB; ahí las probabilidades cambian menos de 0,01 y la jugada más probable fue la misma en todas las decisiones de prueba. Todo el servidor de la demo corre dentro de Pyodide.
 
