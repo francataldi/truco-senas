@@ -175,8 +175,8 @@ python -m pytest -q
 | Analizar el diccionario de señas | `python scripts/analyze_signals.py --checkpoint runs/parejas_senas/last.pt` |
 | Toda la investigación (semillas, MCCFR, ablaciones, cross-play, liga, reporte). Necesita antes `train_3060.bat` | `investigacion_3060.bat` |
 | Controles sin el bonus de información, sin la cabeza auxiliar y sin ninguno de los dos, más su análisis con partidos duplicados, en `runs_experimentos/` | `entrenar_controles_3060.bat` |
-| Solo el análisis de esos controles | `analizar_experimentos_3060.bat` |
-| Que la PC no se suspenda hasta que termine el análisis de los controles, sin tocar la configuración de energía | `mantener_despierta.bat` |
+| Solo el análisis de esos controles; si se corta, al volver a abrirlo saltea los pasos que ya terminaron | `analizar_experimentos_3060.bat` |
+| Que la PC no se suspenda hasta que termine el análisis de los controles, sin tocar la configuración de energía; los dos bats de arriba ya lo abren solos | `mantener_despierta.bat` |
 | Demo local con servidor | `python scripts/serve.py --open` |
 | Armar la demo estática para GitHub Pages | `python scripts/build_web.py --runs runs --dictionaries runs/reporte` |
 
