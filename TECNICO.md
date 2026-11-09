@@ -101,7 +101,7 @@ python -m pytest -q
 | Toda la investigación: semillas, MCCFR, ablaciones, cross-play, liga y reporte. Necesita antes `entrenar_principales.bat` | `investigacion.bat` |
 | Controles sin bonus, sin cabeza auxiliar y sin ninguno, más su análisis, en `runs_experimentos/` | `entrenar_controles.bat` |
 | Solo el análisis de esos controles; si se corta, retoma | `analizar_controles.bat` |
-| Corridas cuatro veces más largas (12.000 iteraciones) y una IA de mano a mano, con su análisis, en `runs_largo/`. Tarda alrededor de un día y retoma si se corta | `entrenar_largo.bat` |
+| Entrenar todo más largo y explicar quién le gana a quién: una IA de mano a mano, las tres IA en pareja con 4 veces más manos y el bot de teoría de juegos con 5 veces más repartos, y después diccionarios, mediciones contra el clásico, ablaciones, comparaciones de puntos, figuras, ligas y reporte, todo en `runs_largo/`. Tarda alrededor de un día; si se corta, se vuelve a abrir y sigue | `entrenar_todo.bat` |
 | Que Windows no se suspenda mientras algo corre, sin tocar la configuración de energía. Los bats largos ya lo abren solos | `mantener_despierta.bat` |
 | Demo local con servidor | `python scripts/serve.py --open` |
 | Armar la demo estática para GitHub Pages | `python scripts/build_web.py --runs runs --dictionaries runs/reporte` |

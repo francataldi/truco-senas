@@ -45,6 +45,7 @@ RUN_NAMES = {
     "parejas_senas": "IA con señas",
     "parejas_sin_senas": "IA sin señas",
     "parejas_espias": "IA entrenada con espías",
+    "duelo": "IA de mano a mano",
 }
 
 

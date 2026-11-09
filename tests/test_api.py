@@ -26,7 +26,7 @@ DUEL = Rules(num_players=2, signals=False)
 def runs(tmp_path_factory):
     root = tmp_path_factory.mktemp("runs")
     torch.manual_seed(0)
-    for name, rules in (("senas", SIGNALS), ("mudo", MUTE), ("con_archivo", SIGNALS)):
+    for name, rules in (("senas", SIGNALS), ("mudo", MUTE), ("con_archivo", SIGNALS), ("duelo", DUEL)):
         folder = root / name
         folder.mkdir()
         save_checkpoint(folder / "last.pt", build_net(rules, NetConfig(hidden=32, depth=1)), rules, {"iteration": 7})
@@ -36,6 +36,7 @@ def runs(tmp_path_factory):
     (root / "con_archivo" / "senas" / "diccionario.json").write_text(json.dumps(summary, ensure_ascii=False), encoding="utf-8")
     (root / "con_archivo" / "eval.jsonl").write_text(json.dumps({"iteration": 7, "vs_heuristic": {"win_rate": 0.61}}) + "\n", encoding="utf-8")
     (root / "senas" / "vs_heuristico.json").write_text(json.dumps({"duplicado": True, "matches": 2000, "win_rate": 0.744}), encoding="utf-8")
+    (root / "duelo" / "vs_heuristico.json").write_text(json.dumps({"duplicado": True, "matches": 2000, "win_rate": 0.66}), encoding="utf-8")
     solver = MCCFR(DUEL, seed=0)
     for _ in range(60):
         solver.iterate()
@@ -56,7 +57,7 @@ def specs(client):
     agents = client.get("/api/agents").json()["agents"]
     found = {a["spec"].split("/")[-2] + ("-greedy" if a["kind"] == "ppo-greedy" else ""): a["spec"] for a in agents if a["family"] == "ppo"}
     cfr = {a["kind"]: a["spec"] for a in agents if a["family"] == "cfr"}
-    named = {"senas": found["senas"], "mudo": found["mudo"], "archivo": found["con_archivo"], "greedy": found["senas-greedy"]}
+    named = {"senas": found["senas"], "mudo": found["mudo"], "archivo": found["con_archivo"], "greedy": found["senas-greedy"], "duelo": found["duelo"]}
     return {**named, "cfr": cfr["cfr"], "cfr-greedy": cfr["cfr-greedy"]}
 
 
@@ -305,12 +306,15 @@ def test_duel_catalog_and_defaults(client, specs):
     assert "73 de cada 100" in cfr["description"] and cfr["summary"]
     assert by_spec[specs["cfr-greedy"]]["label"].endswith("sin dudar")
     assert by_spec["heuristic"]["players"] == [2, 4] and by_spec["heuristic-mudo"]["players"] == [4]
-    assert data["defaults"]["duel"] == ["human", specs["cfr"]]
+    assert data["defaults"]["duel"] == ["human", specs["duelo"]]
+    duel = by_spec[specs["duelo"]]
+    assert duel["players"] == [2] and duel["label"] == "IA de mano a mano"
+    assert duel["summary"] == "Una IA que aprendió a jugar mano a mano." and "66 de cada 100" in duel["description"]
     response = client.get("/api/dictionary", params={"spec": specs["cfr"]})
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize("rival", ["heuristic", "random", "cfr"])
+@pytest.mark.parametrize("rival", ["heuristic", "random", "cfr", "duelo"])
 def test_duel_play_to_the_end(client, specs, rival):
     rival = specs.get(rival, rival)
     game = client.post("/api/games", json={"mode": "play", "seats": ["human", rival], "target": 15, "seed": 4}).json()
@@ -321,6 +325,9 @@ def test_duel_play_to_the_end(client, specs, rival):
     assert advice is not None
     if rival == specs["cfr"]:
         assert advice["kind"] in ("policy", "rules")
+    if rival == specs["duelo"]:
+        assert advice["kind"] == "policy" and advice["value"] is not None and advice["beliefs"] is None
+        assert advice["agent"] == "IA de mano a mano"
     events, actions = play_out(client, game, random.Random(1))
     assert actions > 0
     final = events[-1]
