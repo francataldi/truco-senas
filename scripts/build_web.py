@@ -50,6 +50,9 @@ def bundle_run(zf: zipfile.ZipFile, run_dir: Path, work: Path, dictionary: Path 
     if source.exists():
         zf.write(source, f"runs/{name}/senas/diccionario.json")
         info["dictionary"] = True
+    duplicate = run_dir / "vs_heuristico.json"
+    if duplicate.exists():
+        zf.write(duplicate, f"runs/{name}/vs_heuristico.json")
     return info
 
 
