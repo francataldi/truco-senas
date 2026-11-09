@@ -55,7 +55,7 @@ class SpecError(ValueError):
 
 def summarize_ppo(rules) -> str:
     if rules.num_players == 2:
-        return "Una IA que aprendió a jugar mano a mano."
+        return "Una red neuronal que aprendió sola a jugar mano a mano."
     if not rules.signals:
         return "Una IA que juega sin hacer señas y sin mirar las de nadie."
     if rules.spy_prob >= 0.5:
@@ -70,7 +70,10 @@ def describe_ppo(run: str, rules, win: float | None, greedy: bool) -> str:
     ]
     if rules.num_players == 2:
         parts[0] = parts[0].replace("en pareja con copias de sí misma", "mano a mano contra copias de sí misma")
-        parts.append("Juega solo mano a mano, sin señas.")
+        parts.append(
+            "Es una red neuronal, el mismo tipo de cerebro que las IA en pareja, pero criada para el truco de a dos: "
+            "juega solo mano a mano, sin señas. A diferencia del jugador clásico, nadie le escribió reglas."
+        )
     elif not rules.signals:
         parts.append(
             "Lo hizo en un truco donde no existen las señas, así que juega solo con sus cartas y con lo que pasa en la mesa "
