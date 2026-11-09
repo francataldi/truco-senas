@@ -12,4 +12,4 @@ title Controles 2/3: sin bonus de informacion
 "%PY%" scripts\train_ppo.py --config configs\ppo_sin_bonus.yaml
 title Controles 3/3: sin cabeza auxiliar
 "%PY%" scripts\train_ppo.py --config configs\ppo_sin_aux.yaml
-call analizar_experimentos_3060.bat
+call analizar_controles.bat

@@ -26,7 +26,7 @@ def apply_overrides(cfg: TrainConfig, args: argparse.Namespace) -> TrainConfig:
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
-    p.add_argument("--config", default="configs/ppo_3060.yaml")
+    p.add_argument("--config", default="configs/ppo_principal.yaml")
     p.add_argument("--out", default=None)
     p.add_argument("--iterations", type=int, default=None)
     p.add_argument("--workers", type=int, default=None)

@@ -195,7 +195,7 @@ flowchart LR
 - **La fase de señas es parte del juego.** Antes de la mano cada jugador elige uno de 8 gestos. El compañero siempre lo ve y cada rival lo ve con probabilidad `spy_prob`. La recompensa es el resultado de la mano. Nadie les dice qué significa cada gesto, pero hay dos empujones chicos para que hablen y escuchen: el bonus de información y la cabeza auxiliar.
 - **Una cabeza auxiliar** predice 8 rasgos de la mano del compañero, como "tiene el ancho de espada" o "tiene 30 de envido". Eso obliga a la red a aprovechar las señas que recibe, y es lo que muestra la demo en "Cree que tu compañero tiene". Es un sesgo del que escucha: no premia directamente al que hace la seña, porque el gradiente no pasa por el gesto elegido.
 - **PPO estándar:** ventajas con GAE, clipping, entropía para explorar, máscara de acciones ilegales y un bonus a la información de las señas: con peso 0,05, la pérdida premia que la seña dependa del estado del jugador (la entropía de la seña promedio menos la entropía de la seña en cada estado), sin decir de qué tiene que depender. Es un sesgo de señalización positiva como el de [Eccles et al., 2019](https://arxiv.org/abs/1912.05676). Sin ese bonus (`signal_coef: 0`), sin la cabeza auxiliar o sin ninguno de los dos, el idioma aparece igual (sección 5).
-- **Rendimiento:** el motor y la codificación están optimizados, y en cada iteración 5 procesos generan manos en paralelo y después la GPU hace la actualización de PPO. Así salen 3000 iteraciones, unos 15 millones de manos, en 1 h 45 min en una RTX 3060 con un Ryzen 5 5600X.
+- **Rendimiento:** el motor y la codificación están optimizados, y en cada iteración 5 procesos generan manos en paralelo y después la GPU hace la actualización de PPO. Así salen 3000 iteraciones, unos 15 millones de manos, en menos de dos horas en una PC de escritorio con placa de video.
 - **En el navegador:** las redes se exportan a numpy y se reimplementan sin torch: en float32 coinciden con PyTorch hasta 3·10⁻⁶. La demo usa pesos en float16 para pesar 5 MB; ahí las probabilidades cambian menos de 0,01 y la jugada más probable fue la misma en todas las decisiones de prueba. Todo el servidor de la demo corre dentro de Pyodide.
 
 ## Correrlo
@@ -210,12 +210,12 @@ python -m pytest -q
 |---|---|
 | Jugar por terminal | `python scripts/play.py` |
 | Entrenar en CPU, prueba rápida | `python scripts/train_ppo.py --config configs/ppo_cpu.yaml` |
-| Entrenar en GPU, run principal | `python scripts/train_ppo.py --config configs/ppo_3060.yaml` |
-| Entrenar las tres corridas principales (con señas, sin señas y con espías) y el MCCFR | `train_3060.bat` |
+| Entrenar en GPU, run principal | `python scripts/train_ppo.py --config configs/ppo_principal.yaml` |
+| Entrenar las tres corridas principales (con señas, sin señas y con espías) y el MCCFR | `entrenar_principales.bat` |
 | Analizar el diccionario de señas | `python scripts/analyze_signals.py --checkpoint runs/parejas_senas/last.pt` |
-| Toda la investigación (semillas, MCCFR, ablaciones, cross-play, liga, reporte). Necesita antes `train_3060.bat` | `investigacion_3060.bat` |
-| Controles sin el bonus de información, sin la cabeza auxiliar y sin ninguno de los dos, más su análisis con partidos duplicados, en `runs_experimentos/` | `entrenar_controles_3060.bat` |
-| Solo el análisis de esos controles; si se corta, al volver a abrirlo saltea los pasos que ya terminaron | `analizar_experimentos_3060.bat` |
+| Toda la investigación (semillas, MCCFR, ablaciones, cross-play, liga, reporte). Necesita antes `entrenar_principales.bat` | `investigacion.bat` |
+| Controles sin el bonus de información, sin la cabeza auxiliar y sin ninguno de los dos, más su análisis con partidos duplicados, en `runs_experimentos/` | `entrenar_controles.bat` |
+| Solo el análisis de esos controles; si se corta, al volver a abrirlo saltea los pasos que ya terminaron | `analizar_controles.bat` |
 | Que la PC no se suspenda hasta que termine el análisis de los controles, sin tocar la configuración de energía; los dos bats de arriba ya lo abren solos | `mantener_despierta.bat` |
 | Demo local con servidor | `python scripts/serve.py --open` |
 | Armar la demo estática para GitHub Pages | `python scripts/build_web.py --runs runs --dictionaries runs/reporte` |
