@@ -38,6 +38,8 @@ BUILTIN = {
 PATH_KINDS = ("ppo", "ppo-greedy")
 POLICY_SUFFIXES = (".pt", ".npz")
 HEADS_UP_KINDS = ("cfr", "cfr-greedy")
+HEADS_UP_FILES = ("heads_up.npz",)
+BUILTIN_PLAYERS = {"heuristic": [2, 4], "heuristic-mudo": [4], "random": [2, 4]}
 DEFAULT_REWARD_SCALE = 4.0
 RUN_NAMES = {
     "parejas_senas": "IA con señas",
@@ -51,6 +53,8 @@ class SpecError(ValueError):
 
 
 def summarize_ppo(rules) -> str:
+    if rules.num_players == 2:
+        return "Una IA que aprendió a jugar mano a mano."
     if not rules.signals:
         return "Una IA que juega sin hacer señas y sin mirar las de nadie."
     if rules.spy_prob >= 0.5:
@@ -63,7 +67,10 @@ def describe_ppo(run: str, rules, win: float | None, greedy: bool) -> str:
         "Aprendió a jugar sola, sin que nadie le explique cómo: "
         "jugó millones de manos en pareja con copias de sí misma y se fue quedando con lo que la hacía ganar."
     ]
-    if not rules.signals:
+    if rules.num_players == 2:
+        parts[0] = parts[0].replace("en pareja con copias de sí misma", "mano a mano contra copias de sí misma")
+        parts.append("Juega solo mano a mano, sin señas.")
+    elif not rules.signals:
         parts.append(
             "Lo hizo en un truco donde no existen las señas, así que juega solo con sus cartas y con lo que pasa en la mesa "
             "(en la partida pone siempre la misma cara). Sirve para medir cuánto ganan las otras gracias a las señas."
@@ -91,13 +98,33 @@ def describe_ppo(run: str, rules, win: float | None, greedy: bool) -> str:
     if win is not None:
         who = "la versión normal gana" if greedy else "gana"
         wins = round(100 * win)
-        if rules.signals:
+        if rules.signals or rules.num_players == 2:
             parts.append(f"Contra el jugador clásico, {who} {wins} de cada 100 partidos.")
         else:
             parts.append(
                 f"Contra el jugador clásico, en una mesa donde nadie hace señas, {who} {wins} de cada 100 partidos. "
                 "Ese número no se compara directo con el de las otras IA."
             )
+    return " ".join(parts)
+
+
+def describe_cfr(win: float | None, greedy: bool) -> str:
+    parts = [
+        "No es una red neuronal: es una tabla enorme que dice qué conviene hacer en cada situación, "
+        "armada con un método de teoría de juegos (MCCFR) que también se usa para el póker. "
+        "Jugó un millón de repartos de práctica contra sí mismo y, en cada situación, anotó cuánto se arrepentía "
+        "de no haber elegido otra jugada; de a poco fue eligiendo más seguido lo que menos arrepentimiento le dejaba.",
+        "Para que la tabla entre en memoria agrupa situaciones parecidas, como «tengo una carta altísima y 28 de envido». "
+        "Juega solo mano a mano, sin señas.",
+    ]
+    if greedy:
+        parts.append(
+            "Esta versión «sin dudar» hace siempre la jugada que más le gusta. La normal mezcla a propósito, "
+            "como un buen jugador de póker, para que no lo puedan leer."
+        )
+    if win is not None:
+        who = "la versión normal gana" if greedy else "gana"
+        parts.append(f"Contra el jugador clásico, mano a mano, {who} {round(100 * win)} de cada 100 partidos.")
     return " ".join(parts)
 
 
@@ -117,6 +144,10 @@ class AgentInfo:
         return self.kind.endswith("-greedy")
 
     @property
+    def players(self) -> list[int]:
+        return list(self.details.get("players", [2, 4] if self.kind == HUMAN else [4]))
+
+    @property
     def mute(self) -> bool:
         if self.kind == "heuristic-mudo":
             return True
@@ -131,6 +162,7 @@ class AgentInfo:
             "description": self.description,
             "summary": self.summary,
             "mute": self.mute,
+            "players": self.players,
             **{k: v for k, v in self.details.items() if k != "reward_scale"},
         }
 
@@ -197,10 +229,13 @@ class Catalog:
             if root.is_dir():
                 for suffix in POLICY_SUFFIXES:
                     paths += sorted(root.rglob(f"last{suffix}"))
+                for name in HEADS_UP_FILES:
+                    paths += sorted(root.rglob(name))
         for path in paths:
             if path.suffix not in POLICY_SUFFIXES:
                 continue
-            for kind in PATH_KINDS:
+            kinds = HEADS_UP_KINDS if path.name in HEADS_UP_FILES else PATH_KINDS
+            for kind in kinds:
                 spec = f"{kind}:{self.display(path)}"
                 if spec in seen:
                     continue
@@ -208,7 +243,7 @@ class Catalog:
                 with contextlib.suppress(SpecError):
                     found.append(self.resolve(spec))
         found += [self.resolve(spec) for spec in BUILTIN]
-        order = {"ppo": 0, "heuristic": 1, "random": 2}
+        order = {"ppo": 0, "cfr": 1, "heuristic": 2, "random": 3}
         return sorted(found, key=lambda info: order.get(info.family, 9))
 
     def resolve(self, spec: str) -> AgentInfo:
@@ -227,27 +262,58 @@ class Catalog:
             return HUMAN_INFO
         if spec in BUILTIN:
             family, label, summary, description = BUILTIN[spec]
-            return AgentInfo(spec, spec, family, label, description, summary=summary)
+            return AgentInfo(spec, spec, family, label, description, details={"players": BUILTIN_PLAYERS[spec]}, summary=summary)
         kind, sep, raw = spec.partition(":")
-        if kind in HEADS_UP_KINDS:
-            raise SpecError(f"{spec!r} es una estrategia MCCFR de 1 contra 1 y esta mesa es de parejas")
-        if kind not in PATH_KINDS or not sep or not raw:
+        if kind not in PATH_KINDS + HEADS_UP_KINDS or not sep or not raw:
             raise SpecError(f"agente desconocido: {spec!r}")
         path = self._absolute(Path(raw))
         if not path.is_file():
             raise SpecError(f"no existe el archivo {raw!r}")
         if not self._permitted(path):
             raise SpecError(f"{raw!r} está fuera de las carpetas permitidas")
+        if kind in HEADS_UP_KINDS:
+            return self._cfr_info(f"{kind}:{self.display(path)}", kind, path)
         return self._ppo_info(f"{kind}:{self.display(path)}", kind, path)
+
+    def _cfr_info(self, spec: str, kind: str, path: Path) -> AgentInfo:
+        policy = self.load_policy(path)
+        if policy.rules.num_players != 2:
+            raise SpecError(f"{path.name} no es una estrategia de 1 contra 1")
+        sidecar = path.with_suffix(".json")
+        meta = {}
+        if sidecar.is_file():
+            with contextlib.suppress(ValueError):
+                meta = json.loads(sidecar.read_text(encoding="utf-8"))
+        win = (meta.get("vs_heuristic") or {}).get("win_rate")
+        details = {"players": [2], "signals": False, "infosets": len(policy), "iterations": meta.get("iterations", policy.meta.get("iterations"))}
+        if win is not None:
+            details["win_vs_heuristic"] = win
+        greedy = kind == "cfr-greedy"
+        label = f"Bot de teoría de juegos{' · sin dudar' if greedy else ''}"
+        summary = "Un bot que busca la estrategia más difícil de aprovechar, como en el póker."
+        return AgentInfo(spec, kind, "cfr", label, describe_cfr(win, greedy), path, details, summary=summary)
+
+    def load_policy(self, path: Path):
+        with self._lock:
+            cached = self._nets.get(path)
+        if cached is None:
+            try:
+                from agents.cfr import Policy
+
+                cached = Policy.load(path)
+            except Exception as exc:
+                raise SpecError(f"no se pudo cargar {path.name}: {exc}") from exc
+            with self._lock:
+                self._nets[path] = cached
+        return cached
 
     def _ppo_info(self, spec: str, kind: str, path: Path) -> AgentInfo:
         net, rules, extra = self.load_net(path)
-        if rules.num_players != 4:
-            raise SpecError(f"{path.name} es un checkpoint de {rules.num_players} jugadores y la mesa es de 4")
         run = path.parent.name if path.stem == "last" else f"{path.parent.name}/{path.stem}"
         details = {
             "run": run,
             "iteration": extra.get("iteration"),
+            "players": [rules.num_players],
             "signals": rules.signals,
             "spy_prob": rules.spy_prob,
             "signal_vocab": rules.signal_vocab,
@@ -289,6 +355,10 @@ class Catalog:
             return HeuristicAgent(seed=seed, use_signals=False)
         if info.kind == "random":
             return RandomAgent(seed=seed)
+        if info.family == "cfr":
+            from agents.cfr import CFRAgent
+
+            return CFRAgent(self.load_policy(info.path), greedy=info.greedy, seed=seed)
         if info.family == "ppo":
             net, rules, _ = self.load_net(info.path)
             if info.path.suffix == ".npz":
@@ -304,7 +374,9 @@ class Catalog:
         return float(info.details.get("reward_scale", DEFAULT_REWARD_SCALE))
 
     def default_specs(self) -> dict[str, str]:
-        ppo = [info for info in self.discover() if info.kind == "ppo"]
+        found = self.discover()
+        ppo = [info for info in found if info.kind == "ppo" and 4 in info.players]
+        duel = [info for info in found if info.kind in ("ppo", "cfr") and 2 in info.players]
         with_signals = [info for info in ppo if info.details.get("signals")]
         preferred = [info for info in with_signals if info.details.get("run") == "parejas_senas"]
         partner = (preferred or with_signals or ppo or [self.resolve("heuristic")])[0].spec
@@ -315,4 +387,5 @@ class Catalog:
             "rivals": "heuristic",
             "team_a": partner,
             "team_b": (control or without)[0].spec if without else "heuristic",
+            "duel": duel[0].spec if duel else "heuristic",
         }

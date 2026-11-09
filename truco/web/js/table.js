@@ -3,6 +3,7 @@ import { esc, reducedMotion, sleep } from './dom.js';
 import { faceSVG } from './faces.js';
 
 const POS = ['south', 'east', 'north', 'west'];
+const DUEL_POS = ['south', 'north'];
 const ROUND_LABELS = ['1ª', '2ª', '3ª'];
 
 function rotation(card) {
@@ -37,7 +38,7 @@ export class Table {
     this.signatures.clear();
     this.state = null;
     const seats = game.seats.map((seat) => this.seatMarkup(seat)).join('');
-    const bazas = game.seats.map((seat) => `<div class="baza" data-seat="${seat.seat}" data-pos="${POS[seat.seat]}"></div>`).join('');
+    const bazas = game.seats.map((seat) => `<div class="baza" data-seat="${seat.seat}" data-pos="${this.pos(seat.seat)}"></div>`).join('');
     const tools = [];
     if (game.mode === 'watch') {
       tools.push('<button type="button" class="felt-chip" data-action="toggle-cards"></button>');
@@ -68,6 +69,10 @@ export class Table {
     this.updateToggle();
   }
 
+  pos(seat) {
+    return this.game && this.game.players === 2 ? DUEL_POS[seat] : POS[seat];
+  }
+
   updateToggle() {
     const button = this.root.querySelector('[data-action="toggle-cards"]');
     if (button) button.textContent = this.showAll ? 'Ocultar cartas' : 'Mostrar cartas';
@@ -75,7 +80,7 @@ export class Table {
 
   seatMarkup(seat) {
     const own = this.viewer === seat.seat;
-    return `<div class="asiento pos-${POS[seat.seat]} team-${seat.team}" data-seat="${seat.seat}">
+    return `<div class="asiento pos-${this.pos(seat.seat)} team-${seat.team}" data-seat="${seat.seat}">
       <div class="identidad">
         <div class="avatar" data-ref="avatar">${faceSVG(seat.seat)}</div>
         <div class="placa">

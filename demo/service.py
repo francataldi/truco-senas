@@ -61,6 +61,8 @@ class DemoService:
         return {
             "play": [HUMAN, rivals, partner, rivals],
             "watch": [team_a, team_b, team_a, team_b],
+            "duel": [HUMAN, found["duel"]],
+            "duel_watch": [found["duel"], "heuristic"],
         }
 
     def prefetch(self):
@@ -73,6 +75,7 @@ class DemoService:
                     except SpecError as exc:
                         print(f"aviso: {exc}", flush=True)
         wanted += [info for info in self.catalog.discover() if info.kind == "ppo"]
+        wanted = [info for info in wanted if 4 in info.players]
         return self.dictionaries.prefetch(list(dict.fromkeys(wanted)))
 
     def health(self) -> dict:
@@ -83,7 +86,7 @@ class DemoService:
         for info in self.catalog.discover():
             item = info.to_dict()
             path = dictionary_file(info)
-            item["dictionary"] = "archivo" if path is not None and path.is_file() else ("mudo" if info.mute else "calculado")
+            item["dictionary"] = "archivo" if path is not None and path.is_file() else ("mudo" if info.mute or 4 not in info.players else "calculado")
             item["dictionary_ready"] = self.dictionaries.ready(info)
             items.append(item)
         return {"agents": items, "defaults": self.defaults(), "targets": [15, 30]}
@@ -95,6 +98,8 @@ class DemoService:
             raise ServiceError(422, str(exc)) from exc
         if info.kind == HUMAN:
             raise ServiceError(422, "el humano no tiene diccionario propio")
+        if 4 not in info.players:
+            raise ServiceError(422, f"{info.label} juega mano a mano, sin señas")
         return {"spec": info.spec, "label": info.label, **self.dictionaries.get(info).to_dict()}
 
     def new_game(
@@ -164,8 +169,8 @@ def _new_game_args(body: dict) -> dict:
     if mode not in MODES:
         raise ServiceError(422, "mode tiene que ser play o watch")
     seats = body.get("seats")
-    if seats is not None and (not isinstance(seats, list) or len(seats) != 4 or not all(isinstance(s, str) for s in seats)):
-        raise ServiceError(422, "seats tiene que tener 4 agentes")
+    if seats is not None and (not isinstance(seats, list) or len(seats) not in (2, 4) or not all(isinstance(s, str) for s in seats)):
+        raise ServiceError(422, "seats tiene que tener 2 o 4 agentes")
     spy = body.get("spy_prob", 0.2)
     try:
         spy = float(spy)

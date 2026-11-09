@@ -1211,3 +1211,16 @@
     justify-content: space-between;
   }
 }
+
+.nota-duelo {
+  display: grid;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.nota-duelo b {
+  color: var(--text);
+}

@@ -943,10 +943,16 @@ class CFRAgent(Agent):
     def coverage(self) -> float:
         return self.hits / max(1, self.hits + self.misses)
 
+    def strategy(self, hand: TrucoHand, seat: int) -> np.ndarray | None:
+        probs = self.policy.lookup(self.key(hand, seat))
+        if probs is None or len(probs) != len(hand.legal_actions()):
+            return None
+        return probs
+
     def act(self, hand: TrucoHand, seat: int) -> int:
         legal = hand.legal_actions()
-        probs = self.policy.lookup(self.key(hand, seat))
-        if probs is None or len(probs) != len(legal):
+        probs = self.strategy(hand, seat)
+        if probs is None:
             self.misses += 1
             return self.fallback.act(hand, seat)
         self.hits += 1
