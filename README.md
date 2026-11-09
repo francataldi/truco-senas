@@ -25,7 +25,8 @@
 - Antes de cada mano podían hacerle a su compañero uno de **8 gestos sin significado**. Terminaron usándolos como las señas del truco: "boca a la derecha" pasó a querer decir "tengo un ancho".
 - Cuando los rivales podían espiar los gestos, **dejaron de avisar sus cartas**.
 - Al jugador clásico le ganan sobre todo **apretándolo**: cantan seguido, a veces mintiendo, y el clásico se achica.
-- La demo se juega en el navegador, en pareja o mano a mano.
+- Mano a mano hay otra red neuronal, entrenada de a dos, que le gana al clásico **85 de cada 100 partidos**.
+- La demo se juega en el navegador, en pareja o mano a mano contra esa red.
 
 ## Si nunca oíste hablar de inteligencia artificial
 
@@ -179,9 +180,28 @@ Entre ellas gana la que tiene señas, el **53%** de las veces (entre 51% y 55%).
 
 El clásico con sus señas le gana a su versión muda el **67%** de las veces (entre 65% y 69%), y toda la diferencia sale del truco. Cuando su compañero le avisa que tiene un ancho canta truco más seguido (47% de las manos contra 33%), y el clásico mudo, que no sabe nada, rechaza el 82%.
 
-#### Mano a mano: el bot de teoría de juegos
+#### Mano a mano: una red neuronal y un bot de teoría de juegos
 
-Para el truco de a dos hay otro bot, que no es una red neuronal sino una tabla armada con teoría de juegos, el mismo método de los bots de póker (ver MCCFR en el glosario). Le gana al clásico el **72%** mano a mano (entre 70% y 74%), y con la misma receta: canta envido primero en el 46% de las manos, miente en el 39% de esas veces, y el clásico rechaza el 80%.
+Para el truco de a dos hay dos bots que aprendieron solos, cada uno a su manera:
+
+- **La IA de mano a mano** es una red neuronal como las de pareja, pero entrenada de a dos: jugó 3 millones de manos contra copias de sí misma.
+- **El bot de teoría de juegos** no es una red, sino una tabla armada con el mismo método que usan los bots de póker (ver MCCFR en el glosario). Para que la tabla entre en memoria agrupa situaciones parecidas: para él, 27 y 28 de envido son lo mismo, y el marcador lo ve en solo dos tramos.
+
+<p align="center"><img src="docs/img/fuentes_mano_a_mano.png" alt="De dónde sacan los puntos la IA de mano a mano y el bot de teoría de juegos contra el jugador clásico" width="720"></p>
+
+| Mano a mano contra el clásico | IA de mano a mano | Bot de teoría de juegos |
+|---|---|---|
+| **Gana** | **85%** (83% a 87%) | **72%** (70% a 74%) |
+| Puntos de ventaja por mano | +0,32 | +0,19 |
+| De esos, por el envido | **+0,21** | +0,11 |
+| Canta envido primero | 53% de las manos | 46% |
+| …con menos de 25 (miente) | 41% de esas veces | 39% |
+| El clásico no quiere el envido | 82% | 80% |
+| Se va al mazo | 21% de las manos | 22% |
+
+Los dos usan la misma receta que las IA en pareja: cantan mucho, mienten seguido y se van al mazo cuando la mano viene mala. Las cartas y el truco les dan casi lo mismo a los dos. **La diferencia está en el envido**, que a la red le rinde el doble. Una explicación probable es la que dijimos arriba: la red ve las cartas y el marcador exactos, y la tabla los ve agrupados.
+
+Cara a cara, la red le gana a la tabla el **53%** de las veces (entre 51% y 55%), una ventaja chica. Saca un poco más con el envido y jugando las cartas, pero la tabla le arranca más trucos: la red no quiere el 52% de los trucos que le cantan, y la tabla, solo el 38%.
 
 #### La tabla de posiciones
 
@@ -196,7 +216,7 @@ Hicimos una liga: cada IA jugó 400 partidos contra cada una de las otras, contr
 1. Entrá a **[francataldi.github.io/truco-senas](https://francataldi.github.io/truco-senas/)** y esperá unos segundos a que cargue.
 2. Elegí **En parejas** o **Mano a mano**, y **Jugar** o **Mirar**. Debajo de cada jugador hay un párrafo que explica qué tiene de distinto.
 3. **En parejas** jugás con una IA de compañera contra dos rivales. Antes de cada mano elegís un gesto, y la demo te dice qué va a entender tu compañero con cada uno.
-4. **Mano a mano** jugás vos solo contra el bot que elijas: el jugador clásico, el de teoría de juegos o el jugador al azar. No hay señas, porque no hay compañero.
+4. **Mano a mano** jugás vos solo contra el bot que elijas. Viene elegida la IA de mano a mano, la red neuronal, que es la que más le gana al clásico, pero también podés jugar contra el bot de teoría de juegos, el clásico o el jugador al azar. No hay señas, porque no hay compañero.
 5. **Qué piensa la IA** muestra qué haría en tu lugar alguien que habla el idioma de tu compañero (mano a mano, tu propio rival), qué tan segura está de cada jugada y, en pareja, qué cree que tiene tu compañero. Lo que pensaban los demás se muestra al terminar la mano, para no mostrarte sus cartas antes de tiempo.
 6. **Mirar** es ver jugar solos a los bots, a la velocidad que quieras.
 
