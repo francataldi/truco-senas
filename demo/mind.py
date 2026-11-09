@@ -32,7 +32,7 @@ def decide(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -
             return Thought("mute", action, {action: 1.0})
         probs, value, beliefs = agent.evaluate(hand, seat)
         action = agent.sample(probs)
-        return Thought("policy", action, _over(legal, probs), value * value_scale, value, beliefs.tolist())
+        return Thought("policy", action, _over(legal, probs), value * value_scale, value, _partner(hand, beliefs))
     if isinstance(agent, RandomAgent):
         action = agent.act(hand, seat)
         return Thought("random", action, {a: 1.0 / len(legal) for a in legal})
@@ -51,12 +51,16 @@ def advise(agent: Agent, hand: TrucoHand, seat: int, value_scale: float = 4.0) -
         probs, value, beliefs = agent.evaluate(hand, seat)
         options = _over(legal, probs)
         best = max(options, key=options.get)
-        return Thought("policy", best, options, value * value_scale, value, beliefs.tolist())
+        return Thought("policy", best, options, value * value_scale, value, _partner(hand, beliefs))
     strategy = _strategy(agent, hand, seat)
     if strategy is not None:
         return Thought("policy", max(strategy, key=strategy.get), strategy)
     signals = getattr(agent, "use_signals", True)
     return Thought("rules", HeuristicAgent(seed=len(hand.history), use_signals=signals).act(hand, seat))
+
+
+def _partner(hand: TrucoHand, beliefs) -> list[float] | None:
+    return beliefs.tolist() if hand.rules.num_players == 4 else None
 
 
 def _strategy(agent: Agent, hand: TrucoHand, seat: int) -> dict[int, float] | None:
