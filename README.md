@@ -1,11 +1,8 @@
 <div align="center">
 
-# 🃏 truco-senas
+# 🃏 Truco con señas
 
-**Una red neuronal, copiada en los cuatro asientos, aprendió a jugar al truco en parejas y, sin que nadie le dijera qué significa cada gesto, inventó su propio idioma de señas.**
-
-Aprendizaje por refuerzo multiagente (PPO), comunicación emergente y un baseline de teoría de juegos (MCCFR),
-con una demo que se juega en el navegador contra los agentes entrenados.
+**Unas inteligencias artificiales aprendieron solas a jugar al truco en pareja. Nadie les dijo qué significa cada seña, y se inventaron su propio idioma.**
 
 [![tests](https://github.com/francataldi/truco-senas/actions/workflows/tests.yml/badge.svg)](https://github.com/francataldi/truco-senas/actions/workflows/tests.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-3776ab)
@@ -14,53 +11,65 @@ con una demo que se juega en el navegador contra los agentes entrenados.
 
 ### [▶ Jugar en el navegador](https://francataldi.github.io/truco-senas/)
 
-<a href="https://francataldi.github.io/truco-senas/"><img src="docs/img/demo.jpg" alt="Demo: mesa de truco con cartas españolas, la mente del agente a la izquierda y el diccionario de señas a la derecha" width="900"></a>
+<a href="https://francataldi.github.io/truco-senas/"><img src="docs/img/demo.jpg" alt="Demo: mesa de truco con cartas españolas, lo que piensa la IA a la izquierda y el diccionario de señas a la derecha" width="900"></a>
 
-<sub>No hay que instalar nada: Python, el motor del truco y las redes corren en tu navegador con Pyodide. Jugás con un compañero entrenado contra dos rivales, le hacés señas y ves en vivo qué entiende y qué piensa.</sub>
+<sub>No hay que instalar nada. Jugás en pareja con una IA de compañera, o mano a mano contra el bot que elijas, y ves en vivo qué piensa.</sub>
 
 </div>
 
 ---
 
-## La idea
+## En 30 segundos
 
-En el truco de verdad los compañeros se hacen **señas** a escondidas: un guiño es el ancho de basto, levantar las cejas es el ancho de espada. Si un rival las ve, se aprovecha.
+- Cuatro jugadores artificiales jugaron **15 millones de manos** de truco entre ellos. Al principio tiraban cualquier cosa; al final le ganan **3 de cada 4 partidos** a un jugador programado con las reglas de alguien que sabe jugar.
+- Antes de cada mano podían hacerle a su compañero uno de **8 gestos sin significado**. Terminaron usándolos como las señas del truco: "boca a la derecha" pasó a querer decir "tengo un ancho".
+- Cuando los rivales podían espiar los gestos, **dejaron de avisar sus cartas**.
+- Al jugador clásico le ganan sobre todo **apretándolo**: cantan seguido, a veces mintiendo, y el clásico se achica.
+- La demo se juega en el navegador, en pareja o mano a mano.
 
-Acá, antes de cada mano, cada agente le hace a su compañero uno de **8 gestos que no significan nada**. La recompensa es ganar puntos; qué significa cada gesto no se le dice a nadie. Las preguntas eran cuatro:
+## Si nunca oíste hablar de inteligencia artificial
 
-1. ¿Los agentes inventan un idioma, o los gestos quedan como ruido?
+Un programa común sigue reglas que escribió una persona: "si tenés 27 o más de envido, cantá envido". Acá no hay reglas. El programa **aprende probando**, como alguien que aprende truco solo, jugando miles de partidas y quedándose con lo que le hizo ganar.
+
+Por dentro, cada jugador es una **red neuronal**: una fórmula enorme con unas 900.000 perillas que transforma lo que ve (sus cartas, lo que se jugó, el marcador, las señas) en una decisión (qué carta tirar, si cantar, si aceptar). Al principio las perillas están en cualquier lado y juega al azar. Después de cada tanda de manos, cada perilla se mueve un poquito en la dirección que hubiera dado más puntos.
+
+```mermaid
+flowchart LR
+    A["Juega miles de manos<br/>contra copias de sí misma"] --> B["Mira cuántos puntos<br/>ganó o perdió cada decisión"]
+    B --> C["Mueve un poquito sus perillas<br/>para repetir lo que salió bien"]
+    C --> A
+```
+
+Eso se repitió 3.000 veces, unos 15 millones de manos, en menos de dos horas. Se llama **aprendizaje por refuerzo**: nadie le muestra ejemplos de cómo se juega, solo le dice cuántos puntos sacó.
+
+Las palabras técnicas que aparecen abajo están explicadas en el [glosario](#glosario-de-machine-learning-en-castellano).
+
+## Las señas
+
+En el truco de verdad los compañeros se hacen señas a escondidas: levantar las cejas es el ancho de espada, guiñar el ojo es el de basto. Si un rival las ve, se aprovecha.
+
+Acá, antes de cada mano, cada jugador elige uno de 8 gestos: cejas, guiño, boca a la derecha, boca a la izquierda, labio mordido, lengua afuera, ojos cerrados y beso. **Ninguno significa nada de antemano.** Lo único que buscan las IA es ganar puntos; si los gestos les sirven para eso, tienen que inventarles un significado.
+
+```mermaid
+flowchart LR
+    V["Un jugador hace un gesto"] --> C["Su compañero<br/>lo ve siempre"]
+    V -. "1 de cada 5 veces" .-> R["Los rivales<br/>lo pescan"]
+```
+
+Las preguntas eran cuatro:
+
+1. ¿Inventan un idioma, o los gestos quedan como ruido?
 2. Si lo inventan, ¿qué significa cada seña?
-3. ¿Qué pasa con ese idioma cuando los rivales pueden espiar?
-4. ¿El idioma sale del juego, o de los dos empujones chicos que tiene el entrenamiento para que hablen y escuchen?
+3. ¿Qué pasa con ese idioma cuando los rivales espían?
+4. ¿El idioma sale del juego, o de las ayuditas que les dimos al entrenarlas?
 
-<details>
-<summary><b>Glosario para no especialistas</b></summary>
+## Qué descubrimos
 
-| Término | Qué quiere decir |
-|---|---|
-| **Agente** o **IA** | Un jugador manejado por una red neuronal. |
-| **Heurístico** o **jugador clásico** | Un jugador programado a mano, con reglas fijas y las señas de siempre del truco. Sirve de vara para medir a las IA. |
-| **PPO** | El método de aprendizaje por refuerzo con el que se entrenaron: la red juega, ve si ganó o perdió y ajusta sus decisiones de a poco. |
-| **Self-play** | Aprender jugando contra copias de sí misma, sin datos de partidas humanas. |
-| **Iteración** | Una ronda de entrenamiento: unas 5.000 manos jugadas y una actualización de la red. |
-| **Semilla** | El número que fija el azar de un entrenamiento. Dos semillas distintas son como dos parejas que aprendieron por separado. |
-| **Cross-play** | Juntar como compañeros a dos IA que se entrenaron por separado, para ver si se entienden. |
-| **Ablación** | Romper a propósito una pieza, como mezclar las señas, para medir cuánto aportaba. |
-| **Partidos duplicados** | Jugar cada reparto dos veces, con las parejas cambiadas de lugar, para que la suerte de las cartas se cancele. |
-| **Bits** | Cuánta información lleva una seña. 0 bits es no decir nada y cada bit extra es como contestar una pregunta de sí o no. |
-| **Elo** | El mismo puntaje que se usa en ajedrez: 200 puntos de diferencia es ganar aproximadamente 3 de cada 4 partidas. |
-| **Intervalo de confianza (IC 95%)** | El rango donde está el valor real con un 95% de seguridad, por haber jugado una cantidad finita de partidas. |
-| **MCCFR** | Un algoritmo de teoría de juegos que busca la estrategia más difícil de explotar. Es el usado en los bots de póker. |
+### 1. Se inventaron un idioma, y se parece al de las personas
 
-</details>
+<p align="center"><img src="docs/img/diccionario_parejas_senas.png" alt="Diccionario de señas: qué rasgo de la mano anuncia cada seña" width="760"></p>
 
-## Qué descubrieron
-
-### 1. Reinventaron las señas del truco
-
-<p align="center"><img src="docs/img/diccionario_parejas_senas.png" alt="Diccionario de señas emergente: qué rasgo de la mano anuncia cada seña" width="760"></p>
-
-Después de 3000 iteraciones de PPO (15,4 millones de manos), cada gesto pasó a anunciar algo concreto. Medido al empezar el partido, 0 a 0:
+Mirando 80.000 señas al empezar el partido, cada gesto pasó a anunciar algo concreto:
 
 | Gesto | Qué anuncia | Qué tan seguido es cierto |
 |---|---|---|
@@ -69,177 +78,184 @@ Después de 3000 iteraciones de PPO (15,4 millones de manos), cada gesto pasó a
 | Ojos cerrados | tengo un tres | 44% |
 | Beso | tengo un siete bravo | 43% |
 | Boca a la izquierda · Cejas · Guiño | a lo sumo tengo un dos | 83% · 74% · 71% |
-| Labio mordido | sin significado claro | se usa el 6% de las veces |
+| Labio mordido | nada claro | casi no se usa |
 
-La seña dice **0,52 bits** sobre la mejor carta de la mano, con un intervalo bootstrap de 0,51 a 0,54. Nadie les enseñó la convención humana: llegaron solos a algo muy parecido, con la señal más fuerte en el ancho de espada, igual que en una mesa de verdad. Avisar que la mano es floja también es información para el compañero.
+**¿Cuánto ayuda una seña?** Supongamos que tenés que adivinar cuál es la mejor carta de tu compañero, entre 7 tipos (un ancho, un siete bravo, un tres, un dos, y así). Sin ver ninguna seña, lo mejor que podés hacer es decir siempre "un tres", y acertás el **22%** de las veces. Mirando la seña de la IA acertás el **41%**: casi el doble. Los especialistas lo miden en *bits* (acá, 0,52 bits); el glosario explica qué son.
 
-Ese es el diccionario del comienzo del partido. La red ve el marcador y el idioma se corre a medida que avanza. Medido con los pesos float16 de la demo, a 15 a 15 "ojos cerrados" pasa a anunciar 27 o más de envido y "beso" deja de significar algo claro, y la información sobre la mejor carta baja de 0,52 bits (0 a 0) a 0,43 (15 a 15) y 0,36 (25 a 12). Con marcadores sorteados como en el entrenamiento (un 30% de las manos a 0 a 0 y el resto al azar, `analyze_signals.py --zero-score-prob 0.3`) la seña dice **0,42 bits** (de 0,41 a 0,42): "boca a la derecha" sigue avisando un ancho el 68% de las veces y "ojos cerrados" se corre al envido, con 27 o más el 53% de las veces.
+Nadie les enseñó la convención humana y llegaron a algo parecido: la seña más clara es la del ancho, como en una mesa de verdad. Avisar que la mano es floja también le sirve al compañero.
+
+La IA también ve el marcador, y el idioma se corre a medida que avanza el partido. A 15 a 15, por ejemplo, "ojos cerrados" pasa a anunciar envido en vez de un tres. "Boca a la derecha = tengo un ancho" se mantiene todo el partido.
 
 ### 2. Las señas valen partidos
 
+Para saber cuánto vale algo, se lo sacamos y medimos cuánto pierde. Los especialistas le dicen **ablación**. Pusimos a la IA contra una copia exacta de sí misma, que tiene que ganar la mitad de las veces, y a una de las dos le rompimos algo. Cada condición se jugó en 1.000 partidos, y **cada reparto se jugó dos veces con las parejas cambiadas de lugar**, para que las cartas no favorezcan a nadie.
+
 <p align="center"><img src="docs/img/ablaciones.png" alt="Ablaciones con partidos duplicados: qué pasa si se mezclan las señas del compañero, las espiadas, ambas, si no espía o si hace siempre la misma seña" width="900"></p>
 
-Cada condición se jugó en 1.000 partidos contra una copia intacta de sí mismo, con cada reparto jugado dos veces y las parejas cambiadas de lugar, para que la suerte de las cartas se cancele. Sin tocar nada gana el **49,4%** (IC 95% de 46,3% a 52,5%), como tiene que dar por simetría. Si se le mezclan las señas del compañero gana el **34%**, y si hace siempre la seña más usada al empezar el partido (boca a la izquierda, que el compañero lee como "a lo sumo un dos") gana el **33%**.
+Sin tocar nada gana el **49,4%**, como tiene que ser. Esto pasa cuando le rompemos algo:
 
-| Qué se le saca | Cuánto pierde, en puntos de tasa de victoria (IC 95%) |
+| Qué le sacamos | Cuántos partidos de cada 100 pierde de más |
 |---|---|
-| Entender al compañero: sus señas le llegan mezcladas | **16** (13 a 19) |
-| Señalar: hace siempre el mismo gesto | **17** (14 a 20) |
-| Todas las señas: las del compañero y las espiadas, mezcladas | **21** (18 a 23) |
-| Espiar: no ve nunca las señas de los rivales | 1 (−2 a 4), no se distingue de cero |
-| Creerle a lo espiado: ve las señas de los rivales, pero mezcladas | **7** (4 a 10) |
+| Entender al compañero: sus señas le llegan mezcladas al azar | **16** (entre 13 y 19) |
+| Señalar: hace siempre el mismo gesto | **17** (entre 14 y 20) |
+| Todas las señas, propias y espiadas | **21** (entre 18 y 23) |
+| Espiar: nunca ve las señas de los rivales | 1 (entre −2 y 4): no se distingue de cero |
+| Creerle a lo espiado: ve las señas rivales, pero cambiadas | **7** (entre 4 y 10) |
 
-Espiar casi no suma, pero el agente sí le cree a lo que espía: si lo que ve de los rivales está cambiado, pierde 7 puntos. La versión anterior de este análisis jugaba cada reparto una sola vez, el control sin tocar nada daba 44% y espiar parecía valer 7 puntos; con partidos duplicados esa diferencia desaparece. Los valores ajustados por el control, que `scripts/ablations.py` también informa, cambian menos de medio punto.
+Los números entre paréntesis son el **margen de error**: con más partidos se achicaría, pero el valor real está casi seguro adentro. Las señas valen mucho. Espiar, en cambio, casi no suma; lo curioso es que la IA sí le cree a lo que espía, y si se lo cambiamos, pierde.
 
 ### 3. Cada pareja inventa su propio idioma
 
 <p align="center"><img src="docs/img/crossplay_crossplay.png" alt="Cross-play contra self-play entre 5 semillas" width="760"></p>
 
-Se entrenaron 5 parejas con semillas distintas. Cada una contra el heurístico gana el **70%** jugando con su propia pareja, pero si se mezclan compañeros de semillas distintas baja al **57%**. Queda parecido o apenas peor que jugar con las señas del compañero mezcladas al azar (60%): un compañero que habla otro idioma ayuda tan poco como uno que hace gestos al azar.
+Entrenamos 5 parejas por separado, cada una con su propia tirada de azar (su **semilla**). Cada una le gana al jugador clásico el **70%** con su compañero de siempre. Si juntamos compañeros de parejas distintas, baja al **57%**: es como jugar con alguien que hace gestos al azar. Los diccionarios de dos parejas coinciden tan poco como si se hubieran sorteado, pero si se reordenan los gestos para que encajen, coinciden bastante más: inventaron ideas parecidas con palabras distintas. Es lo que pasa con los idiomas: la palabra es arbitraria, lo que importa es que los dos la entiendan igual.
 
-Los diccionarios de dos semillas coinciden un 18% de las veces, igual que por azar (20%). Reordenando los gestos para que coincidan lo mejor posible, el acuerdo sube al 55%. Lo que cambia es la palabra, no el concepto: es el resultado clásico de que **los lenguajes emergentes son convenciones arbitrarias**.
+### 4. Con espías, se callan
 
-### 4. Con espías, el idioma se esconde
+<p align="center"><img src="docs/img/diccionario_parejas_espias.png" alt="Diccionario de señas cuando los rivales ven las señas la mitad de las veces" width="760"></p>
 
-<p align="center"><img src="docs/img/diccionario_parejas_espias.png" alt="Diccionario de señas cuando los rivales ven las señas con probabilidad 0,5" width="760"></p>
+Entrenamos otra pareja con rivales que pescan la mitad de los gestos. Como avisar las cartas también le servía al rival, **dejaron de hacerlo**: mirando su seña, adivinar la mejor carta pasa de 22% a apenas 23%. Lo único que siguen avisando, un poco, es si tienen mucho envido. Hacer siempre el mismo gesto ya no les cuesta nada.
 
-Cuando cada seña tiene un 50% de chance de que la vean los rivales, los agentes **dejan de avisar sus cartas**: la información sobre la mejor carta cae de 0,52 a 0,02 bits. Lo único que siguen señalando es el envido, con 0,14 bits sobre "27 o más". Con partidos duplicados, señalar ya no vale nada: el que hace siempre el mismo gesto gana el 52% (IC 95% de 49% a 55%), mientras que sin espías perdía 17 puntos. Entender al compañero todavía vale 5 puntos (de 2 a 8).
+### 5. El idioma no lo fabricaron las ayuditas
 
-### 5. El idioma no sale de los empujones
+Al entrenarlas les dimos dos empujones chicos para que hablen y escuchen: un premio por hacer señas que dependan de la mano (el **bonus de información**) y una tarea extra de adivinar las cartas del compañero (la **cabeza auxiliar**). ¿Y si el idioma salió de ahí y no del juego? Para saberlo entrenamos tres parejas más, iguales en todo, sacándoles una ayuda, la otra o las dos. A eso se le dice **control**.
 
-<p align="center"><img src="docs/img/diccionario_parejas_sin_sesgos.png" alt="Diccionario de señas de la pareja entrenada sin bonus de información ni cabeza auxiliar" width="760"></p>
+<p align="center"><img src="docs/img/diccionario_parejas_sin_sesgos.png" alt="Diccionario de señas de la pareja entrenada sin ninguna de las dos ayudas" width="760"></p>
 
-El entrenamiento tiene dos empujones chicos para que hablen y escuchen: el bonus de información y la cabeza auxiliar (ver [Cómo funciona](#cómo-funciona)). Para saber si el idioma sale de ellos se entrenaron tres parejas más, iguales en todo lo demás: sin bonus, sin cabeza auxiliar y sin ninguno de los dos. La figura de arriba es el diccionario de la que no tiene ninguno.
-
-| Pareja | Información sobre la mejor carta | El rasgo del que más informa | Entender al compañero vale |
-|---|---|---|---|
-| Con los dos empujones (la principal) | 0,52 bits | el ancho de espada | 16 puntos (13 a 19) |
-| Sin bonus de información | 0,46 bits | el ancho de espada | 14 puntos (11 a 17) |
-| Sin cabeza auxiliar | 0,22 bits | 27 o más de envido | 14 puntos (11 a 17) |
-| Sin ninguno de los dos | 0,39 bits | el ancho de espada | 13 puntos (10 a 16) |
-
-Las cuatro inventan un idioma y lo usan. Si los gestos fueran ruido, la información daría menos de 0,001 bits, y mezclarle las señas al compañero les cuesta entre 13 y 16 puntos de tasa de victoria, medido con partidos duplicados. Con marcadores sorteados, los tres controles dan entre 0,27 y 0,45 bits, casi lo mismo que a 0 a 0.
-
-Las diferencias entre las cuatro no se pueden achacar a los empujones. Hay una sola pareja por variante, y las 5 semillas de la sección 3, que tienen los dos empujones y solo cambian el azar, terminaron entre 0,01 y 0,40 bits a las 800 iteraciones. Para medir cuánto ayuda cada empujón harían falta varias semillas por variante.
-
-### 6. Contra el clásico y entre ellos
-
-<p align="center"><img src="docs/img/liga_liga.png" alt="Ratings Bradley-Terry de la liga entre las seis IA, el heurístico, el heurístico mudo y el jugador al azar, con intervalos bootstrap" width="640"></p>
-
-Contra el jugador clásico, con 2.000 partidos duplicados para cada IA:
-
-| IA | Gana | IC 95% |
+| Pareja | Con su seña, adivinás la mejor carta | Entender al compañero le vale |
 |---|---|---|
-| Con señas (la principal) | 74,4% | 72,4% a 76,3% |
-| Entrenada con espías | 75,2% | 73,3% a 77,1% |
-| Sin señas | 77,0% | 75,1% a 78,8% |
-| Sin bonus de información | 72,0% | 70,0% a 74,0% |
-| Sin cabeza auxiliar | 75,0% | 73,0% a 76,8% |
-| Sin ninguno de los dos empujones | 74,2% | 72,2% a 76,0% |
+| Con las dos ayudas (la principal) | 41% de las veces | 16 partidos de cada 100 |
+| Sin el bonus de información | 37% | 14 |
+| Sin la cabeza auxiliar | 27% | 14 |
+| Sin ninguna de las dos (el diccionario de arriba) | 37% | 13 |
 
-La que no hace señas le gana al clásico tanto o un poco más que las que sí, y en una mesa donde nadie hace señas llega al 84,5% (82,9% a 86,1%). Las señas valen mucho entre parejas que hablan el mismo idioma, como muestran las ablaciones, pero contra el clásico no se traducen en más victorias. Por qué, no está medido.
+Sin ver la seña se acierta el 22%. **Las cuatro se inventaron un idioma y lo usan**, así que el idioma sale del juego. Las diferencias entre ellas no se pueden atribuir a las ayudas: hay una sola pareja de cada tipo, y entre parejas iguales con distinta semilla ya hay diferencias así de grandes.
 
-En la liga, cada IA juega 400 partidos contra cada una de las otras y contra el clásico, el clásico sin señas y el jugador al azar. Los ratings son de Bradley-Terry y los intervalos, por bootstrap. Con el clásico en 0, las seis IA quedan entre **+151 y +174 Elo**, con intervalos que se pisan: cara a cara, cada control le gana a la pareja principal entre el 49% y el 53% de las veces. Al clásico sus señas le valen 60 Elo: sin ellas queda en −60 (de −77 a −44).
+### 6. Por qué cada bot le gana al otro
 
-### 7. Teoría de juegos para el 1 contra 1
+Para explicar un resultado no alcanza con contar partidos ganados. La herramienta [`comparar.py`](scripts/comparar.py) juega 2.000 partidos duplicados entre dos bots y mide dos cosas:
 
-Para el truco mano a mano hay un **MCCFR** tabular con CFR lineal y abstracción de cartas, puntajes y apuestas. Corrió un millón de iteraciones con 5 procesos que comparten una sola tabla, usó apenas **300 MB de RAM** para unos 600.000 infosets y le gana al heurístico el **73%** de las partidas (intervalo de 68% a 77%).
+- **De dónde sale cada punto.** En el truco hay cuatro formas de sumar: ganar el envido, ganar la mano jugando las cartas, que el rival no quiera tu truco, o que el rival se vaya al mazo. Se cuenta cuántos puntos por mano saca cada uno de cada lado.
+- **Cómo juega cada uno.** Qué tan seguido canta envido o truco, cuántas veces miente (canta envido con menos de 25, o truco sin ninguna carta mejor que un dos), cuántas veces acepta cuando le cantan, y cuántas veces abandona la mano.
 
-<details>
-<summary><b>Más figuras: curvas de aprendizaje, información por rasgo y crecimiento del MCCFR</b></summary>
+#### Contra el jugador clásico: lo aprietan y se achica
 
-<p align="center"><img src="docs/img/curvas_heuristico_principales.png" alt="Victorias contra el heurístico por iteración" width="640"></p>
-<p align="center"><img src="docs/img/entrenamiento_principales.png" alt="Información de las señas, entropía y recompensa media durante el entrenamiento" width="900"></p>
-<p align="center"><img src="docs/img/mi_por_rasgo.png" alt="Información mutua entre la seña y cada rasgo de la mano" width="640"></p>
-<p align="center"><img src="docs/img/crossplay_matriz_crossplay.png" alt="Matriz de cross-play entre las 5 semillas" width="480"></p>
-<p align="center"><img src="docs/img/cfr_infosets_cfr.png" alt="Cantidad de infosets del MCCFR contra iteraciones" width="760"></p>
+<p align="center"><img src="docs/img/fuentes_vs_clasico.png" alt="Puntos por mano que sacan las IA contra el jugador clásico, separados por envido, cartas, truco no querido y mazo" width="760"></p>
 
-</details>
+| Cómo juega | IA con señas | IA sin señas | Jugador clásico |
+|---|---|---|---|
+| Canta envido primero | 56% de las manos | 69% | 19% a 21% |
+| …teniendo menos de 25 (mintiendo) | 39% de esas veces | 45% | 8% |
+| Canta truco | 42% de las manos | 63% | 21% a 33% |
+| Cuando le cantan truco, no quiere | 49% | 46% | **66% a 73%** |
+| Cuando le cantan envido, no quiere | 54% | 52% | **76%** |
+| Se va al mazo | 21% de las manos | 20% | 0% |
+
+El clásico tiene un punto débil: **se achica**. Rechaza tres de cada cuatro envidos y casi tres de cada cuatro trucos, y las IA lo aprendieron a explotar. Cantan mucho, a veces sin nada, y se llevan los puntos del "no quiero". Ese es el bloque más grande del gráfico. A cambio, cuando la mano viene mala, se van al mazo y pierden poco. El clásico nunca se va al mazo, y cuando acepta suele tener con qué: gana el 64% de los envidos que se juegan.
+
+#### ¿Por qué la IA sin señas le gana al clásico un poquito más?
+
+Contra el clásico, la IA sin señas gana el **77%** y la IA con señas, el **74%**. Raro, si las señas valen tanto. La investigación tiene dos partes.
+
+**La IA con señas se confunde espiando al clásico.** El clásico hace las señas de siempre del truco, y cuando la IA las pesca las lee con su propio diccionario: es como escuchar otro idioma creyendo que es el tuyo. Lo probamos rompiendo una cosa por vez, otra vez con partidos duplicados:
+
+| La IA con señas contra el clásico… | Gana |
+|---|---|
+| Normal | 74,1% |
+| **Sin ver nunca las señas del clásico** | **77,7%** |
+| Viendo ruido en vez de las señas del clásico | 73,6% |
+| Con las señas de su compañero mezcladas | 52,7% |
+| Haciendo siempre el mismo gesto | 47,7% |
+
+Espiar al clásico le cuesta 3,6 partidos de cada 100 (entre 0,9 y 6,4). Sin espiar, llega a lo mismo que la IA sin señas. Y para ella las señas de su compañero son importantísimas: sin ellas cae casi a la mitad. Con la IA entrenada sin ayudas pasa lo mismo: de 73,9% sube a 78,5% sin espiar.
+
+**La IA sin señas aprieta más.** Como no sabe qué tiene su compañero, aprendió a presionar más: canta truco en el 63% de las manos, contra el 42% de la que tiene señas. Contra un rival que se achica, eso rinde (+0,41 puntos por mano contra +0,26).
+
+#### Cara a cara: la IA con señas le gana a la sin señas
+
+Entre ellas gana la que tiene señas, el **53%** de las veces (entre 51% y 55%). La de las señas canta truco mucho menos (24% contra 54% de las manos), pero cuando la otra le canta, la sube el triple de seguido (10% de las veces, contra 3%), porque sabe lo que tiene su compañero. Por eso la sin señas termina yéndose al mazo en el 23% de las manos, contra 14%. Ahí está la diferencia: el apriete que contra el clásico rinde, contra alguien que sabe cuándo aceptar, se paga.
+
+#### El clásico también juega mejor con señas
+
+El clásico con sus señas le gana a su versión muda el **67%** de las veces (entre 65% y 69%), y toda la diferencia sale del truco. Cuando su compañero le avisa que tiene un ancho canta truco más seguido (47% de las manos contra 33%), y el clásico mudo, que no sabe nada, rechaza el 82%.
+
+#### Mano a mano: el bot de teoría de juegos
+
+Para el truco de a dos hay otro bot, que no es una red neuronal sino una tabla armada con teoría de juegos, el mismo método de los bots de póker (ver MCCFR en el glosario). Le gana al clásico el **72%** mano a mano (entre 70% y 74%), y con la misma receta: canta envido primero en el 46% de las manos, miente en el 39% de esas veces, y el clásico rechaza el 80%.
+
+#### La tabla de posiciones
+
+<p align="center"><img src="docs/img/liga_liga.png" alt="Ranking Elo de la liga entre las seis IA, el jugador clásico, el clásico sin señas y el jugador al azar" width="640"></p>
+
+Hicimos una liga: cada IA jugó 400 partidos contra cada una de las otras, contra el clásico, el clásico sin señas y el jugador al azar. El puntaje es un **Elo**, como en el ajedrez: 200 puntos de diferencia es ganar unas 3 de cada 4 partidas. Con el clásico en 0, las seis IA quedan entre +151 y +174, muy parejas entre sí; el clásico sin señas queda en −60 y el jugador al azar, en −288.
+
+<sub>Cada experimento se jugó por separado, así que el mismo enfrentamiento puede aparecer como 74,1%, 74,2% o 74,4% según la tabla: esa diferencia está dentro del margen de error.</sub>
 
 ## Cómo se juega la demo
 
-1. Entrá a **[francataldi.github.io/truco-senas](https://francataldi.github.io/truco-senas/)** y esperá unos segundos a que cargue Python.
-2. **Jugar:** te sentás con un compañero PPO contra dos rivales heurísticos. Antes de cada mano elegís una seña: la demo te dice qué va a entender tu compañero con cada gesto.
-3. **Qué piensa la IA:** mirá qué cree tu compañero que tenés vos y qué haría en tu lugar una copia de tu compañero, que habla su mismo idioma de señas. Si tu compañero es el jugador clásico, la sugerencia sale de sus reglas fijas. Qué tan segura estaba de cada jugada y cuántos puntos esperaba sacar se revela al terminar la mano, para no mostrarte sus cartas antes de tiempo.
-4. **Mirar:** dos parejas de agentes juegan solas, la que tiene señas contra la que no. Podés espiar las señas y ajustar la velocidad.
+1. Entrá a **[francataldi.github.io/truco-senas](https://francataldi.github.io/truco-senas/)** y esperá unos segundos a que cargue.
+2. Elegí **En parejas** o **Mano a mano**, y **Jugar** o **Mirar**. Debajo de cada jugador hay un párrafo que explica qué tiene de distinto.
+3. **En parejas** jugás con una IA de compañera contra dos rivales. Antes de cada mano elegís un gesto, y la demo te dice qué va a entender tu compañero con cada uno.
+4. **Mano a mano** jugás vos solo contra el bot que elijas: el jugador clásico, el de teoría de juegos o el jugador al azar. No hay señas, porque no hay compañero.
+5. **Qué piensa la IA** muestra qué haría en tu lugar alguien que habla el idioma de tu compañero (mano a mano, tu propio rival), qué tan segura está de cada jugada y, en pareja, qué cree que tiene tu compañero. Lo que pensaban los demás se muestra al terminar la mano, para no mostrarte sus cartas antes de tiempo.
+6. **Mirar** es ver jugar solos a los bots, a la velocidad que quieras.
 
 <details>
 <summary><b>¿No sabés jugar al truco? Las reglas en 1 minuto</b></summary>
 
-- Se juega con baraja española sin 8, 9 ni comodines, en parejas, a 30 puntos.
+- Se juega con baraja española sin 8, 9 ni comodines, en parejas o de a dos, a 30 puntos.
 - Cada uno recibe 3 cartas y se juegan 3 bazas: gana la mano quien gana 2.
 - Las cartas no valen por número sino por jerarquía. De mayor a menor: ancho de espada, ancho de basto, 7 de espada, 7 de oro, los tres, los dos, los anchos falsos, los doce, onces y diez, los sietes falsos, seis, cinco y cuatro.
-- **Truco:** se canta para que la mano valga más (truco 2, retruco 3, vale cuatro 4). El rival acepta con "quiero" o se va y regala los puntos.
-- **Envido:** antes de la primera baza se apuesta a quién tiene más puntos sumando dos cartas del mismo palo más 20.
-- **Señas:** acá cada jugador hace una antes de la mano. Los rivales a veces la ven, igual que en una mesa de verdad.
-- **Simplificaciones del motor:** solo responde el rival que sigue al que canta; irse al mazo en la primera baza da 1 punto aunque no se haya cantado envido; la falta envido vale lo que le falta para ganar a la pareja que va adelante, sin la regla de malas y buenas; las corridas publicadas juegan sin flor.
+- **Truco:** se canta para que la mano valga más (truco 2, retruco 3, vale cuatro 4). El rival acepta con "quiero" o no quiere y le regala los puntos.
+- **Envido:** antes de la primera baza se apuesta a quién tiene más puntos, sumando dos cartas del mismo palo más 20.
+- **Irse al mazo:** abandonar la mano y regalarle al rival lo que valía hasta ese momento.
+- **Señas:** en pareja, cada jugador hace una antes de la mano. Los rivales a veces la ven, como en una mesa de verdad.
+- **Simplificaciones:** solo responde el rival que sigue al que canta; irse al mazo en la primera baza da 1 punto aunque no se haya cantado envido; la falta envido vale lo que le falta para ganar al que va adelante; se juega sin flor.
 
 </details>
 
 <p align="center"><img src="docs/img/demo_celu.jpg" alt="La demo en el celular" width="300"></p>
 
-## Cómo funciona
+## Glosario de machine learning, en castellano
 
-```mermaid
-flowchart LR
-    M["motor de truco<br/>reglas, envido, truco, señas"] --> E["codificación<br/>mano → vector de 699"]
-    E --> N["red compartida 3×512<br/>política · valor · cartas del compañero"]
-    N -- "acción con máscara de legales" --> M
-    N --> P["PPO con self-play<br/>GAE · pool de rivales congelados"]
-    P --> N
-    N --> A["análisis<br/>diccionario · ablaciones · cross-play · liga"]
-    N -- "exportada a numpy" --> W["demo en el navegador<br/>Pyodide"]
-```
+| Término | Qué es, en criollo | En este proyecto |
+|---|---|---|
+| **Inteligencia artificial (IA)** | Un programa que hace algo que parece requerir inteligencia, como jugar bien a las cartas. | Los jugadores que aprendieron solos. |
+| **Machine learning** o aprendizaje automático | Hacer que un programa aprenda de la experiencia en vez de escribirle las reglas a mano. | Las IA aprendieron jugando; nadie les programó cuándo cantar. |
+| **Red neuronal** | Una fórmula enorme con muchas perillas ajustables. Entra información y sale una decisión. | Unas 900.000 perillas. Entra lo que ve el jugador, sale qué tan conveniente es cada jugada. |
+| **Parámetros** o pesos | Las perillas de la red. Aprender es encontrar dónde ponerlas. | Arrancan al azar y se ajustan después de cada tanda de manos. |
+| **Entrenamiento** | El proceso de ajustar las perillas mirando resultados. | Unas 2 horas y 15 millones de manos para cada pareja. |
+| **Aprendizaje por refuerzo** | Aprender por prueba y error: probás, ves si te fue bien y repetís lo que funcionó. Como entrenar a un perro con premios. | El premio son los puntos ganados en cada mano. |
+| **Recompensa** | El número que le dice al programa si lo hizo bien. | La diferencia de puntos entre las dos parejas al terminar la mano. |
+| **Política** | La forma de decidir: para cada situación, qué tan probable es que elija cada jugada. | Lo que muestra "Qué piensa la IA": "62% envido, 20% no quiero…". |
+| **Self-play** | Aprender jugando contra copias de uno mismo, sin partidas de personas. | Los cuatro asientos son la misma red. A veces juega contra versiones viejas suyas, para no olvidarse cómo ganarles. |
+| **PPO** | El método de aprendizaje por refuerzo que usamos. Corrige de a poco, sin dar volantazos que arruinen lo aprendido. | Es el que movió las perillas. |
+| **Iteración** | Una vuelta del ciclo: jugar una tanda de manos y ajustar las perillas una vez. | Unas 5.000 manos cada una; la pareja principal hizo 3.000. |
+| **Exploración** | Probar cosas nuevas aunque no parezcan las mejores, para descubrir si sirven. | Al principio elige casi al azar; con el tiempo, cada vez más lo que sabe que conviene. |
+| **Comunicación emergente** | Que unos agentes inventen un idioma solos porque les sirve para la tarea. | Las señas que se inventaron las IA. |
+| **Bits** | Una medida de información. Un bit es lo que te dice la respuesta a una pregunta de sí o no con 50% y 50%. | Su seña dice 0,52 bits sobre su mejor carta: algo más que media pregunta de sí o no. |
+| **Información mutua** | Cuánto te ayuda saber una cosa para adivinar otra. Si es cero, no ayuda nada. | Cuánto ayuda la seña para adivinar las cartas. Es la medida en bits de arriba. |
+| **Acierto** | Qué tan seguido adivinás bien. | Adivinando la mejor carta del compañero, 22% sin seña y 41% con la seña de la IA. |
+| **Ablación** | Sacarle o romperle una parte a un sistema para medir cuánto aportaba. | Mezclar las señas, ocultarlas o hacer siempre el mismo gesto. |
+| **Control** | Una versión igual en todo menos en lo que querés probar, para comparar. | Las parejas entrenadas sin ayudas, para ver si el idioma salía de ahí. |
+| **Semilla** | El número que fija el azar de un experimento. Distinta semilla, distinta tirada de dados. | Cinco parejas iguales con semillas distintas inventaron cinco idiomas distintos. |
+| **Cross-play** | Juntar agentes que aprendieron por separado para ver si se entienden. | Compañeros de parejas distintas: no se entienden. |
+| **Tasa de victoria** | De cada 100 partidos, cuántos gana. | La medida principal de todo el proyecto. |
+| **Margen de error** o intervalo de confianza del 95% | El rango donde está casi seguro el valor real, porque jugamos una cantidad finita de partidos. Con más partidos, el rango se achica. | "74% (entre 72% y 76%)". |
+| **Bootstrap** | Una forma de calcular el margen de error: rehacer la cuenta miles de veces sorteando partidos de los que ya se jugaron. | Lo usamos para casi todos los márgenes de error. |
+| **Partidos duplicados** | Jugar cada reparto dos veces cambiando de lugar a los jugadores, para que la suerte de las cartas se cancele. Se usa en el bridge de torneo. | Con esto los resultados se volvieron mucho más precisos. |
+| **Elo** | El puntaje del ajedrez: la diferencia entre dos jugadores predice cuánto gana cada uno. | La tabla de posiciones de la liga. |
+| **Heurístico** o jugador clásico | Un jugador programado a mano con reglas fijas, sin aprendizaje. | La vara contra la que se miden las IA. |
+| **Teoría de juegos** | La matemática de las decisiones cuando el resultado depende de lo que hace el otro. | El bot del mano a mano. |
+| **Equilibrio** | Una forma de jugar a la que nadie le puede sacar ventaja cambiando la suya, como el piedra, papel o tijera jugado al azar. | Lo que busca el bot de teoría de juegos. |
+| **MCCFR** | Un método de teoría de juegos: el bot juega contra sí mismo, anota cuánto se arrepiente de no haber elegido otra jugada en cada situación, y va eligiendo más seguido lo que menos arrepentimiento le deja. Es la base de los bots de póker. | El bot de teoría de juegos jugó un millón de repartos así. |
+| **Abstracción** | Agrupar situaciones parecidas para que entren en memoria. | El bot de teoría de juegos trata igual "tengo 27 de envido" y "tengo 28". |
+| **Bonus de información** | Un premio chiquito por hacer señas que dependan de la mano, sin decir de qué. | Una de las dos ayudas. El control mostró que no hacía falta. |
+| **Cabeza auxiliar** | Una tarea extra que se le da a la red para que aprenda algo útil. | Adivinar las cartas del compañero. Es lo que muestra la demo en "Qué puede tener tu compañero". |
+| **Pyodide** | Python funcionando adentro del navegador. | Gracias a eso la demo no necesita servidor. |
 
-- **Self-play con parámetros compartidos.** Los 4 asientos usan la misma red. En el 20% de las manos, una pareja juega contra una foto congelada de una versión anterior, sacada de un pool de 20, para no olvidar cómo ganarle a estilos viejos.
-- **La fase de señas es parte del juego.** Antes de la mano cada jugador elige uno de 8 gestos. El compañero siempre lo ve y cada rival lo ve con probabilidad `spy_prob`. La recompensa es el resultado de la mano. Nadie les dice qué significa cada gesto, pero hay dos empujones chicos para que hablen y escuchen: el bonus de información y la cabeza auxiliar.
-- **Una cabeza auxiliar** predice 8 rasgos de la mano del compañero, como "tiene el ancho de espada" o "tiene 30 de envido". Eso obliga a la red a aprovechar las señas que recibe, y es lo que muestra la demo en "Cree que tu compañero tiene". Es un sesgo del que escucha: no premia directamente al que hace la seña, porque el gradiente no pasa por el gesto elegido.
-- **PPO estándar:** ventajas con GAE, clipping, entropía para explorar, máscara de acciones ilegales y un bonus a la información de las señas: con peso 0,05, la pérdida premia que la seña dependa del estado del jugador (la entropía de la seña promedio menos la entropía de la seña en cada estado), sin decir de qué tiene que depender. Es un sesgo de señalización positiva como el de [Eccles et al., 2019](https://arxiv.org/abs/1912.05676). Sin ese bonus (`signal_coef: 0`), sin la cabeza auxiliar o sin ninguno de los dos, el idioma aparece igual (sección 5).
-- **Rendimiento:** el motor y la codificación están optimizados, y en cada iteración 5 procesos generan manos en paralelo y después la GPU hace la actualización de PPO. Así salen 3000 iteraciones, unos 15 millones de manos, en menos de dos horas en una PC de escritorio con placa de video.
-- **En el navegador:** las redes se exportan a numpy y se reimplementan sin torch: en float32 coinciden con PyTorch hasta 3·10⁻⁶. La demo usa pesos en float16 para pesar 5 MB; ahí las probabilidades cambian menos de 0,01 y la jugada más probable fue la misma en todas las decisiones de prueba. Todo el servidor de la demo corre dentro de Pyodide.
+## Para quien programa
 
-## Correrlo
-
-```bash
-git clone https://github.com/francataldi/truco-senas && cd truco-senas
-pip install -e ".[dev,demo]"
-python -m pytest -q
-```
-
-| Qué | Comando |
-|---|---|
-| Jugar por terminal | `python scripts/play.py` |
-| Entrenar en CPU, prueba rápida | `python scripts/train_ppo.py --config configs/ppo_cpu.yaml` |
-| Entrenar en GPU, run principal | `python scripts/train_ppo.py --config configs/ppo_principal.yaml` |
-| Entrenar las tres corridas principales (con señas, sin señas y con espías) y el MCCFR | `entrenar_principales.bat` |
-| Analizar el diccionario de señas | `python scripts/analyze_signals.py --checkpoint runs/parejas_senas/last.pt` |
-| Toda la investigación (semillas, MCCFR, ablaciones, cross-play, liga, reporte). Necesita antes `entrenar_principales.bat` | `investigacion.bat` |
-| Controles sin el bonus de información, sin la cabeza auxiliar y sin ninguno de los dos, más su análisis con partidos duplicados, en `runs_experimentos/` | `entrenar_controles.bat` |
-| Solo el análisis de esos controles; si se corta, al volver a abrirlo saltea los pasos que ya terminaron | `analizar_controles.bat` |
-| Que la PC no se suspenda hasta que termine el análisis de los controles, sin tocar la configuración de energía; los dos bats de arriba ya lo abren solos | `mantener_despierta.bat` |
-| Demo local con servidor | `python scripts/serve.py --open` |
-| Armar la demo estática para GitHub Pages | `python scripts/build_web.py --runs runs --dictionaries runs/reporte` |
-
-Los `.bat` son para Windows, pero cada línea es un comando de Python que corre igual en Linux o macOS cambiando `\` por `/`.
-
-## Qué hay en el repo
-
-```
-truco/          motor: cartas, reglas, mano y partida, codificación, máscara de acciones
-truco/web/      frontend de la demo: HTML, CSS y JS sin build, con las cartas dibujadas en SVG
-agents/
-  heuristic.py  heurístico con las señas clásicas del truco
-  ppo/          red, rollouts en paralelo, PPO, agente y versión numpy sin torch
-  cfr.py        MCCFR con abstracción compacta y tabla en memoria compartida
-  signal_analysis.py, ablations.py, crossplay.py, league.py, report.py
-demo/           servicio de partidas, mente del agente y diccionarios, FastAPI y backend para Pyodide
-scripts/        entrenar, evaluar, analizar, jugar, servir y publicar
-docs/           demo publicada en GitHub Pages
-tests/          136 tests, también en CI sobre Ubuntu y Windows
-```
-
-## Créditos
-
-PPO ([Schulman et al., 2017](https://arxiv.org/abs/1707.06347)), MCCFR (Lanctot et al., 2009), CFR lineal ([Brown y Sandholm, 2019](https://arxiv.org/abs/1809.04040)), comunicación emergente en juegos cooperativos ([Foerster et al., 2016](https://arxiv.org/abs/1605.06676)), sesgos para que la comunicación emerja ([Eccles et al., 2019](https://arxiv.org/abs/1912.05676)) y la prueba de cross-play ([Hu et al., 2020](https://arxiv.org/abs/2003.02979)). La demo corre sobre [Pyodide](https://pyodide.org/).
+Cómo está hecho, cómo correrlo, qué hay en cada carpeta y las referencias están en **[TECNICO.md](TECNICO.md)**.
 
 <div align="center"><sub>Hecho por <a href="https://www.linkedin.com/in/franco-cataldi-gagliardi-2347a9268">Franco Cataldi Gagliardi</a> · también hice <a href="https://github.com/francataldi/clima-ensambles">un pronóstico del clima global por ensambles</a></sub></div>
