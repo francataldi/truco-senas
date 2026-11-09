@@ -69,11 +69,12 @@ def describe_ppo(run: str, rules, win: float | None, greedy: bool) -> str:
         "jugó millones de manos en pareja con copias de sí misma y se fue quedando con lo que la hacía ganar."
     ]
     if rules.num_players == 2:
-        parts[0] = parts[0].replace("en pareja con copias de sí misma", "mano a mano contra copias de sí misma")
-        parts.append(
-            "Es una red neuronal, el mismo tipo de cerebro que las IA en pareja, pero criada para el truco de a dos: "
-            "juega solo mano a mano, sin señas. A diferencia del jugador clásico, nadie le escribió reglas."
-        )
+        parts = [
+            "Jugó millones de manos contra copias de sí misma, sin que nadie le explique cómo, "
+            "y se fue quedando con lo que la hacía ganar.",
+            "Es el mismo tipo de cerebro que las IA en pareja, pero criado para el truco de a dos, sin señas: "
+            "a diferencia del jugador clásico, nadie le escribió reglas.",
+        ]
     elif not rules.signals:
         parts.append(
             "Lo hizo en un truco donde no existen las señas, así que juega solo con sus cartas y con lo que pasa en la mesa "

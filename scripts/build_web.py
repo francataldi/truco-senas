@@ -70,7 +70,7 @@ def bundle_cfr(zf: zipfile.ZipFile, path: Path) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="arma la version estatica de la demo, que corre entera en el navegador con Pyodide")
     parser.add_argument("--runs", default="runs", help="carpeta con los runs entrenados")
-    parser.add_argument("--names", nargs="+", default=["parejas_senas", "parejas_sin_senas", "parejas_espias"])
+    parser.add_argument("--names", nargs="+", default=["parejas_senas", "parejas_sin_senas", "parejas_espias", "duelo"])
     parser.add_argument("--dictionaries", default=None, help="carpeta con diccionario_<run>.json, como runs/reporte, para runs sin senas/diccionario.json")
     parser.add_argument("--cfr", default="runs/cfr/heads_up.npz", help="estrategia MCCFR para el mano a mano")
     parser.add_argument("--out", default="docs")

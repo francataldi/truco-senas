@@ -65,9 +65,11 @@ $$
 | Cara a cara con señas contra sin señas | 53,0% (50,9 a 55,2), +0,06 por mano | `comparar.py` |
 | Heurístico con señas contra heurístico mudo | 67,0% (64,9 a 69,0), toda la diferencia en truco no querido | `comparar.py` |
 | MCCFR contra el heurístico, 1 contra 1 | 72,4% (70,4 a 74,3), +0,19 por mano | `comparar.py --players 2` |
+| PPO 1 contra 1 (`ppo_duelo_corto.yaml`: 1.500 iteraciones, 3,1 M de manos, CPU) contra el heurístico | 86,6% (85,0 a 88,0) con `evaluate.py --duplicado`; 85,0% (83,4 a 86,6) con `comparar.py`, +0,32 por mano: envido +0,21, cartas +0,16, truco no querido +0,17, mazo −0,22 | `runs/duelo` |
+| PPO 1 contra 1 contra MCCFR | 52,8% (50,7 a 55,0), +0,02 por mano: envido +0,02, cartas +0,04, truco no querido −0,04 | `comparar.py --players 2` |
 | Liga Bradley-Terry de 9 jugadores, 400 partidos por cruce | IA entre +151 y +174 Elo, heurístico mudo −60, azar −288 | `league.py` |
 
-Para reproducir la investigación de por qué la IA sin señas le gana más al heurístico:
+Para reproducir la investigación de por qué la IA sin señas le gana más al heurístico, y la del mano a mano:
 
 ```bash
 python scripts/ablations.py --checkpoint runs/parejas_senas/last.pt --opponent heuristic --spy 0.2 --matches 1000 --duplicado --out runs_investigacion/ablaciones_vs_clasico/parejas_senas
@@ -77,7 +79,12 @@ python scripts/comparar.py --a ppo:runs/parejas_senas/last.pt --ruido '{"blind_a
 python scripts/comparar.py --a ppo:runs/parejas_senas/last.pt --b ppo:runs/parejas_sin_senas/last.pt --matches 2000 --workers 5
 python scripts/comparar.py --a heuristic --b heuristic-mudo --matches 2000
 python scripts/comparar.py --a cfr:runs/cfr/heads_up.npz --players 2 --matches 2000
+python scripts/train_ppo.py --config configs/ppo_duelo_corto.yaml
+python scripts/evaluate.py --a ppo:runs/duelo/last.pt --players 2 --matches 2000 --duplicado --json runs/duelo/vs_heuristico.json
+python scripts/comparar.py --a ppo:runs/duelo/last.pt --players 2 --matches 2000 --json runs_investigacion/comparaciones/duelo_vs_clasico.json
+python scripts/comparar.py --a ppo:runs/duelo/last.pt --b cfr:runs/cfr/heads_up.npz --players 2 --matches 2000
 python scripts/figura_fuentes.py --json runs_investigacion/comparaciones/senas_vs_clasico.json runs_investigacion/comparaciones/sin_senas_vs_clasico.json --nombres "IA con señas" "IA sin señas" --out docs/img/fuentes_vs_clasico.png
+python scripts/figura_fuentes.py --json runs_investigacion/comparaciones/duelo_vs_clasico.json runs_investigacion/comparaciones/cfr_vs_clasico_1v1.json --nombres "IA de mano a mano" "Bot de teoría de juegos" --out docs/img/fuentes_mano_a_mano.png
 ```
 
 `comparar.py` cuenta como "mentira" un envido cantado con menos de 25 o un truco cantado sin ninguna carta mejor que un dos entre las que le quedan. Las fuentes de puntos son exactas: envido, mano ganada con las cartas (con o sin truco), truco no querido y mazo suman los puntos de cada mano.

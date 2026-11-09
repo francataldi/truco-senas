@@ -1,0 +1,31 @@
+rules:
+  num_players: 2
+  target: 30
+  flor: false
+  signals: false
+  signal_vocab: 8
+  spy_prob: 0.2
+net:
+  hidden: 512
+  depth: 3
+iterations: 1500
+workers: 2
+hands_per_worker: 1024
+parallel_hands: 128
+minibatch: 4096
+epochs: 4
+lr: 0.0003
+lr_final: 0.00005
+entropy_coef: 0.01
+signal_entropy_coef: 0.003
+signal_coef: 0.0
+aux_coef: 0.0
+opponent_prob: 0.2
+snapshot_every: 25
+pool_size: 20
+eval_every: 100
+eval_matches: 200
+save_every: 250
+out_dir: runs/duelo
+device: cpu
+amp: false
