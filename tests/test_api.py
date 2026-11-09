@@ -35,6 +35,7 @@ def runs(tmp_path_factory):
     summary = summarize(data, SIGNALS.signal_vocab)
     (root / "con_archivo" / "senas" / "diccionario.json").write_text(json.dumps(summary, ensure_ascii=False), encoding="utf-8")
     (root / "con_archivo" / "eval.jsonl").write_text(json.dumps({"iteration": 7, "vs_heuristic": {"win_rate": 0.61}}) + "\n", encoding="utf-8")
+    (root / "senas" / "vs_heuristico.json").write_text(json.dumps({"duplicado": True, "matches": 2000, "win_rate": 0.744}), encoding="utf-8")
     solver = MCCFR(DUEL, seed=0)
     for _ in range(60):
         solver.iterate()
@@ -96,6 +97,7 @@ def test_agents_lists_checkpoints_and_builtins(client, specs):
     assert kinds[specs["archivo"]]["win_vs_heuristic"] == 0.61
     assert kinds[specs["archivo"]]["dictionary"] == "archivo"
     assert "61 de cada 100" in kinds[specs["archivo"]]["description"]
+    assert "74 de cada 100" in kinds[specs["senas"]]["description"]
     assert "sin hacer señas" in kinds[specs["mudo"]]["summary"]
     assert "«sin dudar»" in kinds[specs["greedy"]]["description"]
     assert all(a["summary"] and a["description"] for a in data["agents"])

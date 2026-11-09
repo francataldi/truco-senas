@@ -324,6 +324,10 @@ class Catalog:
         evaluation = _last_eval(path.parent)
         if evaluation and "vs_heuristic" in evaluation:
             details["win_vs_heuristic"] = evaluation["vs_heuristic"].get("win_rate")
+        duplicate = path.parent / "vs_heuristico.json"
+        if duplicate.is_file():
+            with contextlib.suppress(ValueError):
+                details["win_vs_heuristic"] = json.loads(duplicate.read_text(encoding="utf-8")).get("win_rate", details.get("win_vs_heuristic"))
         name = RUN_NAMES.get(path.parent.name if path.stem == "last" else "", f"IA · {run}")
         label = f"{name}{' · sin dudar' if kind == 'ppo-greedy' else ''}"
         description = describe_ppo(run, rules, details.get("win_vs_heuristic"), kind == "ppo-greedy")
