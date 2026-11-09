@@ -309,7 +309,7 @@ def test_duel_catalog_and_defaults(client, specs):
     assert data["defaults"]["duel"] == ["human", specs["duelo"]]
     duel = by_spec[specs["duelo"]]
     assert duel["players"] == [2] and duel["label"] == "IA de mano a mano"
-    assert duel["summary"] == "Una IA que aprendió a jugar mano a mano." and "66 de cada 100" in duel["description"]
+    assert duel["summary"] == "Una red neuronal que aprendió sola a jugar mano a mano." and "66 de cada 100" in duel["description"]
     response = client.get("/api/dictionary", params={"spec": specs["cfr"]})
     assert response.status_code == 422
 
