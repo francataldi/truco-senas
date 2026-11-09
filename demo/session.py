@@ -14,13 +14,15 @@ from truco.engine import PARDA, TRUCO_VALUES, TrucoMatch
 from truco.rules import Rules
 
 from .catalog import BUILTIN, HUMAN, AgentInfo, Catalog, SpecError
-from .dictionary import Dictionary, DictionaryService, concept_holds, gesture
+from .dictionary import Dictionary, DictionaryService, concept_holds, gesture, mute_dictionary
 from .mind import Thought, advise, beliefs_payload, context, decide
 
 PLAY_ROLES = ("Vos", "Rival derecho", "Compañero", "Rival izquierdo")
 WATCH_ROLES = ("Sur", "Este", "Norte", "Oeste")
 PLAY_TEAMS = ("Nosotros", "Ellos")
 WATCH_TEAMS = ("Pareja A", "Pareja B")
+DUEL_PLAY = ("Vos", "Rival")
+DUEL_WATCH = ("Sur", "Norte")
 ROUND_NAMES = ("primera", "segunda", "tercera")
 ENVIDO_NAMES = {A.ENVIDO: "envido", A.REAL_ENVIDO: "real envido", A.FALTA_ENVIDO: "falta envido"}
 TARGETS = (15, 30)
@@ -80,8 +82,12 @@ class GameSession:
         self.open_cards = open_cards
         self.scramble = tuple(scramble)
         self.viewer = 0 if mode == "play" else None
-        self.roles = PLAY_ROLES if mode == "play" else WATCH_ROLES
-        self.teams = PLAY_TEAMS if mode == "play" else WATCH_TEAMS
+        self.duel = rules.num_players == 2
+        if self.duel:
+            self.roles = self.teams = DUEL_PLAY if mode == "play" else DUEL_WATCH
+        else:
+            self.roles = PLAY_ROLES if mode == "play" else WATCH_ROLES
+            self.teams = PLAY_TEAMS if mode == "play" else WATCH_TEAMS
         rng = random.Random(seed)
         self.match = TrucoMatch(rules, rng=random.Random(rng.random()), first_mano=rng.randrange(rules.num_players))
         self.hand = None
@@ -99,6 +105,7 @@ class GameSession:
         return {
             "id": self.id,
             "mode": self.mode,
+            "players": self.rules.num_players,
             "target": self.rules.target,
             "spy_prob": self.rules.spy_prob,
             "signals": self.rules.signals,
@@ -122,7 +129,7 @@ class GameSession:
     def _team_payload(self, team: int) -> dict:
         labels = []
         for s in self.seats:
-            if s.index % 2 == team and s.info.label not in labels:
+            if s.index % 2 == team and s.info.label not in labels and not (self.duel and s.human):
                 labels.append(s.info.label)
         return {"team": team, "name": self.teams[team], "agents": " y ".join(labels)}
 
@@ -169,7 +176,7 @@ class GameSession:
             hand = self.hand
             if self.viewer is None or hand.done or hand.current_player != self.viewer:
                 return None
-            advisor = self.seats[(self.viewer + 2) % 4]
+            advisor = self.seats[(self.viewer + 1) % 2] if self.duel else self.seats[(self.viewer + 2) % 4]
             thought = advise(advisor.agent, hand, self.viewer, advisor.value_scale)
             payload = self._mind_payload(self.viewer, thought, force=True)
             payload["agent"] = BUILTIN["heuristic"][1] if advisor.info.family == "random" else advisor.info.label
@@ -395,13 +402,21 @@ class GameSession:
 
     def _reached(self, team: int) -> str:
         target = self.rules.target
+        if self.mode == "play" and self.duel:
+            return f"¡Llegaste a {target}!" if team == 0 else f"Tu rival llegó a {target}"
         if self.mode == "play":
             return f"¡Llegamos a {target}!" if team == 0 else f"Ellos llegaron a {target}"
+        if self.duel:
+            return f"¡{self.teams[team]} llegó a {target}!"
         return f"¡La {self.teams[team]} llegó a {target}!"
 
     def _won(self, team: int, high: int, low: int) -> str:
+        if self.mode == "play" and self.duel:
+            return f"¡Ganaste {high} a {low}!" if team == 0 else f"Ganó tu rival, {high} a {low}"
         if self.mode == "play":
             return f"¡Ganamos {high} a {low}!" if team == 0 else f"Ganaron ellos, {high} a {low}"
+        if self.duel:
+            return f"¡Ganó {self.teams[team]}, {high} a {low}!"
         return f"¡Ganó la {self.teams[team]}, {high} a {low}!"
 
     def _emit(self, kind: str, seat: int | None, text: str, **extra) -> None:
@@ -497,8 +512,8 @@ class GameFactory:
     ) -> GameSession:
         if mode not in ("play", "watch"):
             raise GameError(422, f"modo desconocido: {mode}")
-        if len(specs) != 4:
-            raise GameError(422, "hacen falta cuatro asientos")
+        if len(specs) not in (2, 4):
+            raise GameError(422, "hacen falta dos asientos para el mano a mano o cuatro para jugar en parejas")
         if target not in TARGETS:
             raise GameError(422, f"la partida se juega a {' o '.join(map(str, TARGETS))}")
         if any(t not in (0, 1) for t in scramble):
@@ -507,21 +522,30 @@ class GameFactory:
             infos = [self.catalog.resolve(spec) for spec in specs]
         except SpecError as exc:
             raise GameError(422, str(exc)) from exc
+        players = len(specs)
         humans = [i for i, info in enumerate(infos) if info.kind == HUMAN]
         if mode == "play" and humans != [0]:
-            raise GameError(422, "para jugar, el asiento 0 es tuyo y los otros tres son agentes")
+            raise GameError(422, "para jugar, el asiento 0 es tuyo y los demás son agentes")
         if mode == "watch" and humans:
-            raise GameError(422, "en modo espectador juegan cuatro agentes")
+            raise GameError(422, "en modo espectador juegan solo agentes")
+        for info in infos:
+            if players not in info.players:
+                alone = "solo mano a mano" if info.players == [2] else "solo en parejas"
+                raise GameError(422, f"{info.label} juega {alone}")
         vocabs = {info.details.get("signal_vocab", 8) for info in infos if info.family == "ppo"}
         if len(vocabs) > 1:
             raise GameError(422, "los agentes usan vocabularios de señas distintos")
         vocab = vocabs.pop() if vocabs else 8
-        signals = not all(info.mute for info in infos)
-        rules = Rules(num_players=4, target=target, flor=False, signals=signals, signal_vocab=vocab, spy_prob=spy_prob)
+        signals = players == 4 and not all(info.mute for info in infos)
+        rules = Rules(num_players=players, target=target, flor=False, signals=signals, signal_vocab=vocab, spy_prob=spy_prob)
         rng = random.Random(seed)
-        roles = PLAY_ROLES if mode == "play" else WATCH_ROLES
-        languages = [None if info.kind == HUMAN else self.dictionaries.get(info) for info in infos]
-        if mode == "play":
+        if players == 2:
+            roles = DUEL_PLAY if mode == "play" else DUEL_WATCH
+            languages = [mute_dictionary(vocab) for _ in infos]
+        else:
+            roles = PLAY_ROLES if mode == "play" else WATCH_ROLES
+            languages = [None if info.kind == HUMAN else self.dictionaries.get(info) for info in infos]
+        if mode == "play" and players == 4:
             languages[0] = languages[2]
         seats = []
         for i, info in enumerate(infos):

@@ -9,6 +9,7 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient
 
+from agents.cfr import MCCFR
 from agents.heuristic import HeuristicAgent, classic_signal
 from agents.ppo.net import NetConfig, build_net, save_checkpoint
 from agents.signal_analysis import collect_signals, summarize
@@ -18,6 +19,7 @@ from truco.rules import Rules
 
 SIGNALS = Rules(num_players=4, signals=True)
 MUTE = Rules(num_players=4, signals=False)
+DUEL = Rules(num_players=2, signals=False)
 
 
 @pytest.fixture(scope="module")
@@ -33,6 +35,11 @@ def runs(tmp_path_factory):
     summary = summarize(data, SIGNALS.signal_vocab)
     (root / "con_archivo" / "senas" / "diccionario.json").write_text(json.dumps(summary, ensure_ascii=False), encoding="utf-8")
     (root / "con_archivo" / "eval.jsonl").write_text(json.dumps({"iteration": 7, "vs_heuristic": {"win_rate": 0.61}}) + "\n", encoding="utf-8")
+    solver = MCCFR(DUEL, seed=0)
+    for _ in range(60):
+        solver.iterate()
+    solver.policy().save(root / "cfr" / "heads_up.npz")
+    (root / "cfr" / "heads_up.json").write_text(json.dumps({"iterations": 60, "vs_heuristic": {"win_rate": 0.7275}}), encoding="utf-8")
     return root
 
 
@@ -47,7 +54,9 @@ def client(runs):
 def specs(client):
     agents = client.get("/api/agents").json()["agents"]
     found = {a["spec"].split("/")[-2] + ("-greedy" if a["kind"] == "ppo-greedy" else ""): a["spec"] for a in agents if a["family"] == "ppo"}
-    return {"senas": found["senas"], "mudo": found["mudo"], "archivo": found["con_archivo"], "greedy": found["senas-greedy"]}
+    cfr = {a["kind"]: a["spec"] for a in agents if a["family"] == "cfr"}
+    named = {"senas": found["senas"], "mudo": found["mudo"], "archivo": found["con_archivo"], "greedy": found["senas-greedy"]}
+    return {**named, "cfr": cfr["cfr"], "cfr-greedy": cfr["cfr-greedy"]}
 
 
 def last_state(events):
@@ -267,7 +276,7 @@ def test_invalid_games_are_rejected(client, specs, runs, tmp_path):
         {"mode": "play", "seats": ["heuristic", "heuristic", "heuristic", "heuristic"]},
         {"mode": "play", "seats": ["heuristic", "human", "heuristic", "heuristic"]},
         {"mode": "watch", "seats": ["human", "heuristic", "heuristic", "heuristic"]},
-        {"mode": "watch", "seats": ["heuristic", "heuristic"]},
+        {"mode": "watch", "seats": ["heuristic", "heuristic", "heuristic"]},
         {"mode": "play", "target": 21},
         {"mode": "jugar"},
         {"mode": "watch", "scramble": [2]},
@@ -276,9 +285,60 @@ def test_invalid_games_are_rejected(client, specs, runs, tmp_path):
     for body in cases:
         response = client.post("/api/games", json=body)
         assert response.status_code == 422, body
-    response = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic", "cfr:runs/cfr/heads_up.npz", "heuristic"]})
+    response = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic", specs["cfr"], "heuristic"]})
     assert response.status_code == 422
-    assert "1 contra 1" in response.json()["detail"]
+    assert "solo mano a mano" in response.json()["detail"]
+    response = client.post("/api/games", json={"mode": "play", "seats": ["human", specs["senas"]]})
+    assert response.status_code == 422
+    assert "solo en parejas" in response.json()["detail"]
+    response = client.post("/api/games", json={"mode": "play", "seats": ["human", "heuristic-mudo"]})
+    assert response.status_code == 422
+
+
+def test_duel_catalog_and_defaults(client, specs):
+    data = client.get("/api/agents").json()
+    by_spec = {a["spec"]: a for a in data["agents"]}
+    cfr = by_spec[specs["cfr"]]
+    assert cfr["family"] == "cfr" and cfr["players"] == [2]
+    assert "73 de cada 100" in cfr["description"] and cfr["summary"]
+    assert by_spec[specs["cfr-greedy"]]["label"].endswith("sin dudar")
+    assert by_spec["heuristic"]["players"] == [2, 4] and by_spec["heuristic-mudo"]["players"] == [4]
+    assert data["defaults"]["duel"] == ["human", specs["cfr"]]
+    response = client.get("/api/dictionary", params={"spec": specs["cfr"]})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("rival", ["heuristic", "random", "cfr"])
+def test_duel_play_to_the_end(client, specs, rival):
+    rival = specs.get(rival, rival)
+    game = client.post("/api/games", json={"mode": "play", "seats": ["human", rival], "target": 15, "seed": 4}).json()
+    assert game["players"] == 2 and not game["signals"]
+    assert [s["role"] for s in game["seats"]] == ["Vos", "Rival"]
+    assert [t["name"] for t in game["teams"]] == ["Vos", "Rival"]
+    advice = client.get(f"/api/games/{game['id']}/advice").json()["advice"]
+    assert advice is not None
+    if rival == specs["cfr"]:
+        assert advice["kind"] in ("policy", "rules")
+    events, actions = play_out(client, game, random.Random(1))
+    assert actions > 0
+    final = events[-1]
+    assert final["type"] == "match_end"
+    assert final["text"].startswith(("¡Ganaste", "Ganó tu rival"))
+    assert not any(e["type"] == "signal" for e in events)
+
+
+def test_duel_watch(client, specs):
+    game = client.post("/api/games", json={"mode": "watch", "seats": [specs["cfr"], "heuristic"], "target": 15, "seed": 2}).json()
+    assert [s["role"] for s in game["seats"]] == ["Sur", "Norte"]
+    seq, done = game["seq"], False
+    for _ in range(200):
+        body = client.post(f"/api/games/{game['id']}/advance", json={"steps": 200, "seq": seq}).json()
+        seq = body["seq"]
+        if body["events"][-1]["state"]["phase"] == "match_over":
+            done = True
+            assert body["events"][-1]["text"].startswith("¡Ganó ")
+            break
+    assert done
 
 
 def test_dictionaries_from_file_computed_and_mute(client, specs):
@@ -350,4 +410,4 @@ def test_defaults_prefer_the_canonical_runs(tmp_path):
     assert defaults["team_b"] == "ppo:runs/parejas_sin_senas/last.pt"
     assert defaults["rivals"] == "heuristic"
     empty = Catalog([tmp_path / "nada"], base=tmp_path).default_specs()
-    assert empty == {"partner": "heuristic", "rivals": "heuristic", "team_a": "heuristic", "team_b": "heuristic"}
+    assert empty == {"partner": "heuristic", "rivals": "heuristic", "team_a": "heuristic", "team_b": "heuristic", "duel": "heuristic"}

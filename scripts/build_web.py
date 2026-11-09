@@ -53,11 +53,23 @@ def bundle_run(zf: zipfile.ZipFile, run_dir: Path, work: Path, dictionary: Path 
     return info
 
 
+def bundle_cfr(zf: zipfile.ZipFile, path: Path) -> bool:
+    if not path.is_file():
+        print(f"aviso: no encontré {path}, la demo queda sin el bot de teoría de juegos")
+        return False
+    zf.write(path, "runs/cfr/heads_up.npz")
+    sidecar = path.with_suffix(".json")
+    if sidecar.is_file():
+        zf.write(sidecar, "runs/cfr/heads_up.json")
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="arma la version estatica de la demo, que corre entera en el navegador con Pyodide")
     parser.add_argument("--runs", default="runs", help="carpeta con los runs entrenados")
     parser.add_argument("--names", nargs="+", default=["parejas_senas", "parejas_sin_senas", "parejas_espias"])
     parser.add_argument("--dictionaries", default=None, help="carpeta con diccionario_<run>.json, como runs/reporte, para runs sin senas/diccionario.json")
+    parser.add_argument("--cfr", default="runs/cfr/heads_up.npz", help="estrategia MCCFR para el mano a mano")
     parser.add_argument("--out", default="docs")
     args = parser.parse_args()
     runs = Path(args.runs)
@@ -94,6 +106,7 @@ def main() -> None:
                 continue
             dictionary = Path(args.dictionaries) / f"diccionario_{name}.json" if args.dictionaries else None
             report["runs"].append(bundle_run(zf, run_dir, work, dictionary))
+        report["cfr"] = bundle_cfr(zf, Path(args.cfr))
     shutil.rmtree(work, ignore_errors=True)
     size = (out / "py" / "truco.zip").stat().st_size
     report["zip_mb"] = round(size / 1e6, 2)

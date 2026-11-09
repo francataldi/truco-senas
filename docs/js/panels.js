@@ -100,9 +100,18 @@ export class SignalsPanel {
     this.state = null;
     this.checks = null;
     this.spied = new Set();
+    this.open = null;
+    if (game.players === 2) {
+      this.language = null;
+      this.root.innerHTML = `<div class="nota-duelo">
+        <p><b>Mano a mano no hay señas.</b> Las señas sirven para avisarle algo a tu compañero, y acá no hay compañero: cada uno juega solo con lo que ve.</p>
+        <p>En «Qué piensa la IA» ves qué haría el bot en tu lugar y, cuando termina cada mano, qué estaba pensando él.</p>
+      </div>`;
+      if (this.hint) this.hint.textContent = 'mano a mano';
+      return;
+    }
     const languages = this.languages();
     this.language = languages.length ? languages[0].spec : null;
-    this.open = null;
     this.root.innerHTML = '<ul class="senas-lista" data-ref="lista"></ul><div class="diccionario" data-ref="dic"></div>';
     if (this.hint) this.hint.textContent = game.signals ? 'de esta mano' : 'nadie usa señas';
     this.renderDictionary();
@@ -317,7 +326,11 @@ export class MindPanel {
     let body = '';
     if (!thought) {
       const hidden = this.game.viewer != null && !this.game.open_cards;
-      body = this.empty(hidden ? 'Todavía no decidió nadie de tu equipo en esta mano. La mente de los rivales queda oculta salvo que juegues con cartas abiertas.' : 'Todavía no hubo decisiones en esta mano.');
+      const duel = this.game && this.game.players === 2;
+      const note = duel
+        ? 'La mente de tu rival queda oculta hasta que termina la mano, salvo que juegues con cartas abiertas.'
+        : 'Todavía no decidió nadie de tu equipo en esta mano. La mente de los rivales queda oculta salvo que juegues con cartas abiertas.';
+      body = this.empty(hidden ? note : 'Todavía no hubo decisiones en esta mano.');
     } else {
       body = this.card(thought, showingAdvice);
     }

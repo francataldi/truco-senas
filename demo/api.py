@@ -29,7 +29,7 @@ class WebFiles(StaticFiles):
 
 class NewGame(BaseModel):
     mode: Literal["play", "watch"] = "play"
-    seats: list[str] | None = Field(default=None, min_length=4, max_length=4)
+    seats: list[str] | None = Field(default=None, min_length=2, max_length=4)
     target: int = 30
     seed: int | None = None
     open_cards: bool = False

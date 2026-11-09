@@ -36,6 +36,7 @@ const app = {
   sending: false,
   handEnvido: null,
   setupMode: 'play',
+  setupFormat: 'parejas',
 };
 
 const table = new Table($('#pano'));
@@ -85,10 +86,16 @@ function agentLabel(spec) {
   return info ? info.label : spec;
 }
 
-function optionsMarkup(selected) {
+function playsWith(agent, players) {
+  return (agent.players || [4]).includes(players);
+}
+
+function optionsMarkup(selected, players = 4) {
+  const fits = app.agents.filter((a) => playsWith(a, players));
   const groups = [
-    ['Inteligencias artificiales', app.agents.filter((a) => a.family === 'ppo')],
-    ['Programados a mano', app.agents.filter((a) => a.family === 'heuristic' || a.family === 'random')],
+    ['Inteligencias artificiales', fits.filter((a) => a.family === 'ppo')],
+    ['Teoría de juegos', fits.filter((a) => a.family === 'cfr')],
+    ['Programados a mano', fits.filter((a) => a.family === 'heuristic' || a.family === 'random')],
   ];
   return groups
     .filter(([, list]) => list.length)
@@ -98,15 +105,15 @@ function optionsMarkup(selected) {
     .join('');
 }
 
-function field(id, label, team, selected, wide = false) {
+function field(id, label, team, selected, wide = false, players = 4) {
   return `<div class="field${wide ? ' wide' : ''}">
     <label for="${id}"><span class="seat-dot" style="background:var(--team-${team})"></span>${esc(label)}</label>
-    <select id="${id}">${optionsMarkup(selected)}</select>
+    <select id="${id}">${optionsMarkup(selected, players)}</select>
     <div class="desc" data-desc="${id}"></div>
   </div>`;
 }
 
-const TWINS = { 'sel-left': ['sel-right', 'el rival derecho'], 'sel-b': ['sel-a', 'la pareja A'] };
+const TWINS = { 'sel-left': ['sel-right', 'el rival derecho'], 'sel-b': ['sel-a', 'la pareja A'], 'sel-db': ['sel-da', 'el de Sur'] };
 
 function describe(select) {
   const box = $(`[data-desc="${select.id}"]`);
@@ -123,9 +130,14 @@ function describe(select) {
 }
 
 function savedConfig() {
-  const defaults = app.defaults || { play: ['human', 'heuristic', 'heuristic', 'heuristic'], watch: ['heuristic', 'heuristic', 'heuristic', 'heuristic'] };
+  const fallback = { play: ['human', 'heuristic', 'heuristic', 'heuristic'], watch: ['heuristic', 'heuristic', 'heuristic', 'heuristic'], duel: ['human', 'heuristic'], duel_watch: ['heuristic', 'heuristic'] };
+  const defaults = { ...fallback, ...(app.defaults || {}) };
   const base = {
     mode: 'play',
+    format: 'parejas',
+    rival: defaults.duel[1],
+    da: defaults.duel_watch[0],
+    db: defaults.duel_watch[1],
     partner: defaults.play[2],
     right: defaults.play[1],
     left: defaults.play[3],
@@ -137,10 +149,13 @@ function savedConfig() {
     scramble: 'none',
   };
   const saved = app.config || {};
-  const known = new Set(app.agents.map((a) => a.spec));
   const merged = { ...base, ...saved };
+  const fits = (spec, players) => app.agents.some((a) => a.spec === spec && playsWith(a, players));
   for (const key of ['partner', 'right', 'left', 'a', 'b']) {
-    if (!known.has(merged[key])) merged[key] = base[key];
+    if (!fits(merged[key], 4)) merged[key] = base[key];
+  }
+  for (const key of ['rival', 'da', 'db']) {
+    if (!fits(merged[key], 2)) merged[key] = base[key];
   }
   return merged;
 }
@@ -148,11 +163,23 @@ function savedConfig() {
 function renderSetup() {
   const cfg = savedConfig();
   const mode = app.setupMode;
+  const duel = app.setupFormat === 'duelo';
   $$('.segmented [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-  $('#mode-help').textContent = mode === 'play' ? 'Vos y una IA de compañera contra dos rivales.' : 'Mirá jugar solas a dos parejas, a la velocidad que quieras.';
+  $$('.segmented [data-format]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.format === app.setupFormat)));
+  const help = {
+    'play-parejas': 'Vos y una IA de compañera contra dos rivales.',
+    'watch-parejas': 'Mirá jugar solas a dos parejas, a la velocidad que quieras.',
+    'play-duelo': 'Vos solo contra el bot que elijas, sin compañeros ni señas.',
+    'watch-duelo': 'Mirá a dos bots jugar mano a mano.',
+  };
+  $('#mode-help').textContent = help[`${mode}-${app.setupFormat}`];
   $('#setup-ok').textContent = mode === 'play' ? 'Repartir' : 'Empezar';
   const grid = $('#setup-grid');
-  if (mode === 'play') {
+  if (duel && mode === 'play') {
+    grid.innerHTML = field('sel-rival', 'Tu rival', 1, cfg.rival, true, 2);
+  } else if (duel) {
+    grid.innerHTML = field('sel-da', 'Sur', 0, cfg.da, false, 2) + field('sel-db', 'Norte', 1, cfg.db, false, 2);
+  } else if (mode === 'play') {
     grid.innerHTML = field('sel-partner', 'Tu compañero', 0, cfg.partner, true)
       + field('sel-right', 'Rival derecho', 1, cfg.right)
       + field('sel-left', 'Rival izquierdo', 1, cfg.left);
@@ -166,29 +193,39 @@ function renderSetup() {
   const spy = SPY_OPTIONS.map(([v, label]) => `<option value="${v}"${Math.abs(v - cfg.spy_prob) < 1e-9 ? ' selected' : ''}>${esc(label)}</option>`).join('');
   const targets = [15, 30].map((t) => `<button type="button" data-target="${t}" aria-pressed="${cfg.target === t}">A ${t}</button>`).join('');
   const extra = mode === 'play'
-    ? `<label class="switch" title="Ves las cartas y la mente de los rivales"><input type="checkbox" id="opt-open"${cfg.open_cards ? ' checked' : ''}><span class="track"></span>Cartas abiertas</label>`
-    : `<div class="field"><label for="opt-scramble">Experimento</label><select id="opt-scramble">
+    ? `<label class="switch" title="Ves las cartas y la mente de ${duel ? 'tu rival' : 'los rivales'}"><input type="checkbox" id="opt-open"${cfg.open_cards ? ' checked' : ''}><span class="track"></span>Cartas abiertas</label>`
+    : duel ? '' : `<div class="field"><label for="opt-scramble">Experimento</label><select id="opt-scramble">
         <option value="none"${cfg.scramble === 'none' ? ' selected' : ''}>Señas normales</option>
         <option value="0"${cfg.scramble === '0' ? ' selected' : ''}>Mezclar las señas de la pareja A</option>
         <option value="1"${cfg.scramble === '1' ? ' selected' : ''}>Mezclar las señas de la pareja B</option>
       </select></div>`;
   $('#setup-options').innerHTML = `
     <div class="field"><span class="label">Puntos</span><div class="segmented" role="group" aria-label="Puntos">${targets}</div></div>
-    <div class="field"><label for="opt-spy" title="Chance de que el rival vea la seña que le hacés a tu compañero, como en una mesa de verdad">Chance de que el rival vea tu seña</label><select id="opt-spy">${spy}</select></div>
+    ${duel ? '' : `<div class="field"><label for="opt-spy" title="Chance de que el rival vea la seña que le hacés a tu compañero, como en una mesa de verdad">Chance de que el rival vea tu seña</label><select id="opt-spy">${spy}</select></div>`}
     ${extra}`;
   $$('#setup-options [data-target]').forEach((b) => b.addEventListener('click', () => {
     $$('#setup-options [data-target]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
   }));
-  const ppo = app.agents.filter((a) => a.family === 'ppo' && a.kind === 'ppo').length;
-  $('#setup-note').textContent = ppo
-    ? `${ppo} ${ppo === 1 ? 'IA entrenada lista' : 'IA entrenadas listas'} para jugar`
-    : 'No encontré redes entrenadas en runs/: entrená una o pasá --checkpoint.';
+  const players = duel ? 2 : 4;
+  const ready = app.agents.filter((a) => (a.kind === 'ppo' || a.kind === 'cfr') && playsWith(a, players)).length;
+  $('#setup-note').textContent = ready
+    ? `${ready} ${ready === 1 ? 'bot entrenado listo' : 'bots entrenados listos'} para ${duel ? 'el mano a mano' : 'jugar en parejas'}`
+    : duel ? 'Para el mano a mano no hay bots entrenados: podés jugar contra el clásico o el jugador al azar.' : 'No encontré redes entrenadas en runs/: entrená una o pasá --checkpoint.';
 }
 
 function readSetup() {
   const cfg = savedConfig();
   cfg.mode = app.setupMode;
-  if (cfg.mode === 'play') {
+  cfg.format = app.setupFormat;
+  if (cfg.format === 'duelo') {
+    if (cfg.mode === 'play') {
+      cfg.rival = $('#sel-rival').value;
+      cfg.open_cards = $('#opt-open').checked;
+    } else {
+      cfg.da = $('#sel-da').value;
+      cfg.db = $('#sel-db').value;
+    }
+  } else if (cfg.mode === 'play') {
     cfg.partner = $('#sel-partner').value;
     cfg.right = $('#sel-right').value;
     cfg.left = $('#sel-left').value;
@@ -200,19 +237,25 @@ function readSetup() {
   }
   const target = $('#setup-options [data-target][aria-pressed="true"]');
   cfg.target = target ? Number(target.dataset.target) : 30;
-  cfg.spy_prob = Number($('#opt-spy').value);
+  if ($('#opt-spy')) cfg.spy_prob = Number($('#opt-spy').value);
   return cfg;
 }
 
 function openSetup(mode = null) {
   const dialog = $('#setup');
   app.setupMode = mode || (app.config && app.config.mode) || 'play';
+  app.setupFormat = (app.game && app.game.players === 2) || (!app.game && app.config && app.config.format === 'duelo') ? 'duelo' : app.setupFormat;
   $('#setup-error').hidden = true;
   renderSetup();
   if (!dialog.open) dialog.showModal();
 }
 
 function bodyFor(cfg) {
+  if (cfg.format === 'duelo') {
+    return cfg.mode === 'play'
+      ? { mode: 'play', seats: ['human', cfg.rival], target: cfg.target, open_cards: cfg.open_cards }
+      : { mode: 'watch', seats: [cfg.da, cfg.db], target: cfg.target };
+  }
   if (cfg.mode === 'play') {
     return {
       mode: 'play',
@@ -660,6 +703,11 @@ function bind() {
   $('#btn-nueva').addEventListener('click', () => openSetup(app.game ? app.game.mode : null));
   $$('.segmented [data-mode]').forEach((b) => b.addEventListener('click', () => {
     app.setupMode = b.dataset.mode;
+    $('#setup-error').hidden = true;
+    renderSetup();
+  }));
+  $$('.segmented [data-format]').forEach((b) => b.addEventListener('click', () => {
+    app.setupFormat = b.dataset.format;
     $('#setup-error').hidden = true;
     renderSetup();
   }));
