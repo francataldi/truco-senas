@@ -16,6 +16,12 @@ from .signal_analysis import top_card_bucket
 from .stats import wilson_interval
 
 SOURCES = ("envido", "cartas", "truco_rechazado", "mazo")
+SOURCE_LABELS = {
+    "envido": "Envido",
+    "cartas": "Ganar la mano jugando las cartas",
+    "truco_rechazado": "Truco que el rival no quiso",
+    "mazo": "Manos abandonadas (mazo)",
+}
 COUNTERS = (
     "envido_canta",
     "envido_canta_flojo",
@@ -248,3 +254,44 @@ def compare(
         "equipo_a": _side_summary(totals["a"], hands),
         "equipo_b": _side_summary(totals["b"], hands),
     }
+
+
+def plot_sources(results: list[tuple[str, dict]], path: str, title: str | None = None, xlabel: str | None = None) -> None:
+    from matplotlib.ticker import FuncFormatter
+
+    from .plots import AXIS, GRID, INK_SECONDARY, pyplot, series_color
+
+    plt = pyplot()
+    labels = [SOURCE_LABELS[s] for s in SOURCES] + ["Total por mano"]
+    rows = np.arange(len(labels))
+    n = len(results)
+    band = 0.8 / n
+    fig, ax = plt.subplots(figsize=(8.6, 1.2 + 0.42 * len(labels) * n))
+    for i, (name, result) in enumerate(results):
+        parts = [result["diferencia_por_fuente"][s] for s in SOURCES] + [result["diferencia_por_mano"]]
+        values = np.array([p["diff"] for p in parts])
+        err = np.array([[v - p["ci95"][0], p["ci95"][1] - v] for v, p in zip(values, parts)]).T
+        y = rows + (i - (n - 1) / 2) * band
+        ax.barh(y, values, height=band * 0.86, color=series_color(i), label=name, zorder=2)
+        ax.errorbar(values, y, xerr=err, fmt="none", ecolor=INK_SECONDARY, elinewidth=0.8, capsize=0, zorder=3)
+        for value, yy, hi, lo in zip(values, y, err[1], err[0]):
+            right = value >= 0
+            x = value + (hi if right else -lo) + (0.012 if right else -0.012)
+            ax.text(x, yy, f"{value:+.2f}".replace(".", ",").replace("-", "−"), va="center", ha="left" if right else "right", fontsize=8, color=INK_SECONDARY)
+    ax.axvline(0, color=AXIS, linewidth=1, zorder=1)
+    ax.axhline(len(SOURCES) - 0.5, color=GRID, linewidth=1, zorder=1)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}".replace(".", ",").replace("-", "−")))
+    ax.set_yticks(rows, labels)
+    ax.invert_yaxis()
+    ax.grid(axis="y", visible=False)
+    low = min(ax.get_xlim()[0], -0.05)
+    high = max(ax.get_xlim()[1], 0.05)
+    ax.set_xlim(low - 0.06, high + 0.06)
+    ax.set_xlabel(xlabel or "Puntos por mano a favor (negativo: a favor del rival)")
+    if n > 1:
+        ax.legend(loc="upper left")
+    if title:
+        ax.set_title(title, loc="left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

@@ -95,6 +95,14 @@ def mutual_information_null(x: np.ndarray, y: np.ndarray, samples: int = 200, se
     return float(np.quantile(values, level))
 
 
+def guess_accuracy(tokens: np.ndarray, y: np.ndarray) -> tuple[float, float]:
+    xi, kx = _codes(tokens)
+    yi, ky = _codes(y)
+    joint = np.bincount(xi * ky + yi, minlength=kx * ky).reshape(kx, ky).astype(np.float64)
+    total = max(joint.sum(), 1.0)
+    return float(joint.sum(0).max() / total), float(joint.max(1).sum() / total)
+
+
 def entropy_bits(x: np.ndarray) -> float:
     _, counts = np.unique(x, return_counts=True)
     p = counts / counts.sum()
@@ -146,6 +154,7 @@ def summarize(data: dict, vocab: int, bootstrap: int = 200, seed: int = 0) -> di
         "mi_carta_mas_alta_ci95": ci(tops, 0),
         "mi_carta_mas_alta_nula_p95": null(tops, 0),
         "entropia_carta_mas_alta_bits": round(entropy_bits(tops), 4),
+        "acierto_carta_mas_alta": dict(zip(("sin_seña", "con_seña"), (round(v, 4) for v in guess_accuracy(tokens, tops)))),
         "mi_por_rasgo_bits": {FEATURE_NAMES[i]: round(mutual_information(tokens, feats[:, i]), 4) for i in range(feats.shape[1])},
         "mi_por_rasgo_ci95": {FEATURE_NAMES[i]: ci(feats[:, i], i + 1) for i in range(feats.shape[1])},
         "mi_por_rasgo_nula_p95": {FEATURE_NAMES[i]: null(feats[:, i], i + 1) for i in range(feats.shape[1])},
