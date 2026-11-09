@@ -10,10 +10,10 @@ set F=%L%\figuras
 if not exist %L% mkdir %L%
 set DESPIERTA=1
 start "Manteniendo la PC despierta" /min cmd /c mantener_despierta.bat --hasta %L%\listo.txt --horas 60
-title 1/9 Entrenando la IA de mano a mano
-"%PY%" scripts\train_ppo.py --config configs\ppo_duelo.yaml
-title 2/9 Entrenando la IA con senas
+title 1/9 Entrenando la IA con senas
 "%PY%" scripts\train_ppo.py --config configs\ppo_principal_largo.yaml
+title 2/9 Entrenando la IA de mano a mano
+"%PY%" scripts\train_ppo.py --config configs\ppo_duelo.yaml
 title 3/9 Entrenando la IA sin senas
 "%PY%" scripts\train_ppo.py --config configs\ppo_sin_senas_largo.yaml
 title 4/9 Entrenando la IA con espias
