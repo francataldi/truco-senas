@@ -1,0 +1,22 @@
+rules:
+  num_players: 4
+  target: 30
+  flor: false
+  signals: false
+net:
+  hidden: 512
+  depth: 3
+iterations: 12000
+workers: 5
+hands_per_worker: 1024
+parallel_hands: 128
+minibatch: 8192
+epochs: 4
+signal_coef: 0.0
+signal_entropy_coef: 0.0
+eval_every: 100
+eval_matches: 200
+save_every: 250
+out_dir: runs_largo/parejas_sin_senas
+device: auto
+amp: true

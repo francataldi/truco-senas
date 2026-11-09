@@ -1,0 +1,31 @@
+rules:
+  num_players: 4
+  target: 30
+  flor: false
+  signals: true
+  signal_vocab: 8
+  spy_prob: 0.2
+net:
+  hidden: 512
+  depth: 3
+iterations: 12000
+workers: 5
+hands_per_worker: 1024
+parallel_hands: 128
+minibatch: 8192
+epochs: 4
+lr: 0.0003
+lr_final: 0.00005
+entropy_coef: 0.01
+signal_entropy_coef: 0.003
+signal_coef: 0.05
+aux_coef: 0.1
+opponent_prob: 0.2
+snapshot_every: 25
+pool_size: 20
+eval_every: 100
+eval_matches: 200
+save_every: 250
+out_dir: runs_largo/parejas_senas
+device: auto
+amp: true
