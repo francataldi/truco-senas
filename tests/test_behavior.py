@@ -26,3 +26,23 @@ def test_duplicate_mirror_is_balanced():
     result = compare(Rules(), "heuristic", "heuristic", 40, seed=1)
     lo, hi = result["gana_a_ci95"]
     assert lo < 0.5 < hi
+
+
+def test_plot_sources_writes_a_figure(tmp_path):
+    from agents.behavior import plot_sources
+
+    result = compare(Rules(), "heuristic", "random", 4, seed=2)
+    path = tmp_path / "fuentes.png"
+    plot_sources([("clásico", result), ("otro", result)], str(path), title="prueba")
+    assert path.stat().st_size > 1000
+
+
+def test_guess_accuracy():
+    import numpy as np
+
+    from agents.signal_analysis import guess_accuracy
+
+    tops = np.array([0, 0, 0, 1, 1, 2] * 10)
+    assert guess_accuracy(tops, tops) == (0.5, 1.0)
+    without, with_signal = guess_accuracy(np.zeros_like(tops), tops)
+    assert without == with_signal == 0.5
