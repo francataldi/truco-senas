@@ -102,3 +102,25 @@ def test_encode_into_buffer():
     out = encode(hand, 0, out=buf)
     assert out is buf
     assert np.array_equal(buf, reference_encode(hand, 0))
+
+
+def test_observation_does_not_leak_hidden_information():
+    rng = random.Random(0)
+    for rules in (Rules(num_players=4, signals=True, spy_prob=0.2), Rules(num_players=2, signals=False)):
+        for _ in range(150):
+            hand = TrucoHand(rules, rng=random.Random(rng.random()), scores=(rng.randrange(30), rng.randrange(30)), mano=rng.randrange(rules.num_players))
+            while not hand.done:
+                seat = hand.current_player
+                other = hand.clone()
+                hidden = [(s, i) for s in range(hand.n) if s != seat for i in range(3) if not hand.played_slot[s][i]]
+                dealt = {c for cards in hand.hands for c in cards}
+                pool = [hand.hands[s][i] for s, i in hidden] + [c for c in range(N_CARDS) if c not in dealt]
+                rng.shuffle(pool)
+                for (s, i), card in zip(hidden, pool):
+                    other.hands[s][i] = card
+                other.envido_of = [v if s == seat or hand.revealed_envido[s] is not None else 0 for s, v in enumerate(hand.envido_of)]
+                other.flor_of = [v if s == seat else False for s, v in enumerate(hand.flor_of)]
+                other.signals_sent = [t if s == seat else None for s, t in enumerate(hand.signals_sent)]
+                assert np.array_equal(encode(hand, seat), encode(other, seat))
+                hand.step(rng.choice(hand.legal_actions()))
+

@@ -5,7 +5,7 @@ import random
 import numpy as np
 
 from truco import actions as A
-from truco.cards import STRENGTH
+from truco.cards import STRENGTH, envido_points
 from truco.engine import TrucoHand
 from truco.features import FEATURE_NAMES, hand_features
 from truco.rules import Rules
@@ -13,6 +13,9 @@ from truco.rules import Rules
 from .base import Agent
 
 TOP_CARD_NAMES = ("ancho", "siete bravo", "tres", "dos", "falso o 12", "11 o 10", "baja")
+ENVIDO_EDGES = (20, 27, 30)
+ENVIDO_NAMES = ("menos de 20", "20 a 26", "27 a 29", "30 o más")
+POSITION_NAMES = ("mano", "segundo", "tercero", "pie")
 
 
 def top_card_bucket(cards: list[int]) -> int:
@@ -32,6 +35,11 @@ def top_card_bucket(cards: list[int]) -> int:
     return 6
 
 
+def envido_bucket(cards: list[int]) -> int:
+    value = envido_points(cards)
+    return sum(value >= edge for edge in ENVIDO_EDGES)
+
+
 def random_scores(rng: random.Random, rules: Rules, zero_score_prob: float) -> tuple[int, int]:
     if zero_score_prob >= 1.0 or rng.random() < zero_score_prob:
         return (0, 0)
@@ -40,7 +48,7 @@ def random_scores(rng: random.Random, rules: Rules, zero_score_prob: float) -> t
 
 def collect_signals(rules: Rules, agents: list[Agent], hands: int, seed: int = 0, zero_score_prob: float = 1.0) -> dict:
     rng = random.Random(seed)
-    tokens, feats, tops = [], [], []
+    tokens, feats, tops, envidos, positions = [], [], [], [], []
     for _ in range(hands):
         scores = random_scores(rng, rules, zero_score_prob)
         hand = TrucoHand(rules, rng=random.Random(rng.random()), scores=scores, mano=rng.randrange(rules.num_players))
@@ -50,8 +58,16 @@ def collect_signals(rules: Rules, agents: list[Agent], hands: int, seed: int = 0
             tokens.append(A.signal_token(action))
             feats.append(hand_features(hand.hands[seat]))
             tops.append(top_card_bucket(hand.hands[seat]))
+            envidos.append(envido_bucket(hand.hands[seat]))
+            positions.append((seat - hand.mano) % hand.n)
             hand.step(action)
-    return {"tokens": np.array(tokens), "features": np.array(feats), "top": np.array(tops)}
+    return {
+        "tokens": np.array(tokens),
+        "features": np.array(feats),
+        "top": np.array(tops),
+        "envido": np.array(envidos),
+        "posicion": np.array(positions),
+    }
 
 
 def _codes(x: np.ndarray) -> tuple[np.ndarray, int]:
@@ -72,6 +88,15 @@ def mutual_information(x: np.ndarray, y: np.ndarray) -> float:
     xi, kx = _codes(x)
     yi, ky = _codes(y)
     return _mi_codes(xi, kx, yi, ky)
+
+
+def conditional_mutual_information(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> float:
+    x, y, z = np.asarray(x), np.asarray(y), np.asarray(z)
+    total = 0.0
+    for value in np.unique(z):
+        sel = z == value
+        total += float(sel.mean()) * mutual_information(x[sel], y[sel])
+    return total
 
 
 def mutual_information_ci(x: np.ndarray, y: np.ndarray, samples: int = 200, seed: int = 0) -> tuple[float, float]:
@@ -107,6 +132,48 @@ def entropy_bits(x: np.ndarray) -> float:
     _, counts = np.unique(x, return_counts=True)
     p = counts / counts.sum()
     return float(-(p * np.log2(p)).sum())
+
+
+def summarize_positions(data: dict, vocab: int) -> dict | None:
+    if "posicion" not in data or "envido" not in data:
+        return None
+    tokens, tops, envidos, positions = data["tokens"], data["top"], data["envido"], data["posicion"]
+    n = int(positions.max()) + 1 if len(positions) else 0
+    if n < 2 or len(tokens) % n or not np.array_equal(positions.reshape(-1, n), np.tile(np.arange(n), (len(tokens) // n, 1))):
+        return None
+    tok, top, env = tokens.reshape(-1, n), tops.reshape(-1, n), envidos.reshape(-1, n)
+    rows = []
+    for p in range(n):
+        without, with_signal = guess_accuracy(tok[:, p], top[:, p])
+        row = {
+            "posicion": p,
+            "nombre": POSITION_NAMES[p] if n == len(POSITION_NAMES) else str(p),
+            "frecuencia": (np.bincount(tok[:, p], minlength=vocab) / len(tok)).round(4).tolist(),
+            "entropia_señas_bits": round(entropy_bits(tok[:, p]), 4),
+            "mi_carta_mas_alta_bits": round(mutual_information(tok[:, p], top[:, p]), 4),
+            "acierto_carta_mas_alta": {"sin_seña": round(without, 4), "con_seña": round(with_signal, 4)},
+            "mi_envido_bits": round(mutual_information(tok[:, p], env[:, p]), 4),
+            "carta_mas_alta_tipica": {},
+        }
+        for t in range(vocab):
+            sel = tok[:, p] == t
+            if sel.mean() >= 0.02:
+                dist = np.bincount(top[sel, p], minlength=len(TOP_CARD_NAMES)) / sel.sum()
+                row["carta_mas_alta_tipica"][str(t)] = {"tipo": TOP_CARD_NAMES[int(np.argmax(dist))], "p": round(float(dist.max()), 3)}
+        if n == 4 and p >= 2:
+            partner = tok[:, p - 2]
+            row["mi_con_seña_del_compañero_bits"] = round(mutual_information(tok[:, p], partner), 4)
+            row["mi_carta_mas_alta_dada_seña_del_compañero_bits"] = round(conditional_mutual_information(tok[:, p], top[:, p], partner), 4)
+            row["mi_envido_dada_seña_del_compañero_bits"] = round(conditional_mutual_information(tok[:, p], env[:, p], partner), 4)
+        rows.append(row)
+    return {
+        "mi_carta_mas_alta_dada_posicion_bits": round(conditional_mutual_information(tokens, tops, positions), 4),
+        "mi_envido_bits": round(mutual_information(tokens, envidos), 4),
+        "mi_envido_dada_posicion_bits": round(conditional_mutual_information(tokens, envidos, positions), 4),
+        "entropia_envido_bits": round(entropy_bits(envidos), 4),
+        "tramos_envido": list(ENVIDO_NAMES),
+        "posiciones": rows,
+    }
 
 
 def summarize(data: dict, vocab: int, bootstrap: int = 200, seed: int = 0) -> dict:
@@ -147,7 +214,7 @@ def summarize(data: dict, vocab: int, bootstrap: int = 200, seed: int = 0) -> di
     def null(y: np.ndarray, offset: int) -> float:
         return round(mutual_information_null(tokens, y, samples=bootstrap, seed=seed + 100 + offset), 4)
 
-    return {
+    summary = {
         "señas_observadas": int(n),
         "entropia_señas_bits": round(entropy_bits(tokens), 4),
         "mi_carta_mas_alta_bits": round(mutual_information(tokens, tops), 4),
@@ -164,6 +231,10 @@ def summarize(data: dict, vocab: int, bootstrap: int = 200, seed: int = 0) -> di
         "p_rasgo_dada_seña": conditional.round(4).tolist(),
         "p_rasgo_base": base.round(4).tolist(),
     }
+    by_position = summarize_positions(data, vocab)
+    if by_position is not None:
+        summary["por_posicion"] = by_position
+    return summary
 
 
 def plot_dictionary(summary: dict, path: str, title: str | None = None) -> None:
