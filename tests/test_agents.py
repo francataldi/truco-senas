@@ -179,3 +179,29 @@ def test_mute_heuristic_sends_a_sign_the_classic_partner_ignores():
         hands[token] = hand
     assert hands[None].signal_view[2][0] == 6
     assert reader._strength(hands[None], 2) == pytest.approx(reader._strength(hands[0], 2) - 0.7)
+
+
+class EchoAgent(HeuristicAgent):
+    def act(self, hand, seat):
+        if hand.signal_phase:
+            partner = hand.signal_view[seat][(seat + 2) % 4]
+            if partner is not None:
+                return A.signal_action(partner)
+        return super().act(hand, seat)
+
+
+def test_signal_summary_by_position():
+    rules = Rules(num_players=4, signals=True)
+    classic = summarize(collect_signals(rules, [HeuristicAgent(seed=i) for i in range(4)], 600, seed=0), rules.signal_vocab, bootstrap=0)["por_posicion"]
+    assert [row["nombre"] for row in classic["posiciones"]] == ["mano", "segundo", "tercero", "pie"]
+    assert all(abs(sum(row["frecuencia"]) - 1.0) < 1e-3 for row in classic["posiciones"])
+    assert all(row["mi_carta_mas_alta_bits"] > 0.5 for row in classic["posiciones"])
+    assert classic["posiciones"][2]["mi_con_seña_del_compañero_bits"] < 0.1
+    assert "mi_con_seña_del_compañero_bits" not in classic["posiciones"][0]
+    echo = summarize(collect_signals(rules, [EchoAgent(seed=i) for i in range(4)], 600, seed=0), rules.signal_vocab, bootstrap=0)["por_posicion"]
+    third = echo["posiciones"][2]
+    assert third["mi_con_seña_del_compañero_bits"] > 1.0
+    assert third["mi_carta_mas_alta_dada_seña_del_compañero_bits"] < 0.01
+    assert third["mi_carta_mas_alta_bits"] < classic["posiciones"][2]["mi_carta_mas_alta_bits"]
+    assert echo["mi_envido_bits"] >= 0.0 and len(echo["tramos_envido"]) == 4
+
