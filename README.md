@@ -278,4 +278,6 @@ Hicimos una liga: cada IA jugó 400 partidos contra cada una de las otras, contr
 
 Cómo está hecho, cómo correrlo, qué hay en cada carpeta y las referencias están en **[TECNICO.md](TECNICO.md)**.
 
+El código se puede usar libremente bajo la [licencia MIT](LICENSE).
+
 <div align="center"><sub>Hecho por <a href="https://www.linkedin.com/in/franco-cataldi-gagliardi-2347a9268">Franco Cataldi Gagliardi</a> · también hice <a href="https://github.com/francataldi/clima-ensambles">un pronóstico del clima global por ensambles</a></sub></div>
