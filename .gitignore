@@ -16,3 +16,5 @@ data/
 *.npz
 runs_investigacion/
 runs_largo/
+.ruff_cache/
+.env
