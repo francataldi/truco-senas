@@ -130,7 +130,7 @@ demo/               servicio de partidas, mente del agente y diccionarios, FastA
 scripts/            entrenar, evaluar, comparar, analizar, jugar, servir y publicar
 configs/            corridas principales, controles, largas, mano a mano y prueba en CPU
 docs/               demo publicada en GitHub Pages e imágenes del README
-tests/              146 tests, también en CI sobre Ubuntu y Windows
+tests/              152 tests, también en CI sobre Ubuntu y Windows
 ```
 
 ## Créditos
